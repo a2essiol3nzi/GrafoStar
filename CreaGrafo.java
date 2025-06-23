@@ -32,8 +32,6 @@ public class CreaGrafo {
       BufferedWriter bw = new BufferedWriter(new FileWriter("nomi.txt"), 65536);
       String line;
       
-      // stampo su stderr le linee del file name.basic.tsv non valide
-      System.err.println("=== Serie di linee invalide per la sintesi di un nodo del GRAFO DELLE STAR ===");
       while((line = br.readLine())!=null) {
         // verifico che la linea sia valida (anno di nascita e professione) se lo è allora aggiorno nomi.txt e actors
         String[] campi = line.split("\t");
