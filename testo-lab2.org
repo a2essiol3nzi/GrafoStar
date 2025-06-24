@@ -45,7 +45,7 @@ String nome;                  // none (e cognome) dell'attore
 int anno;                     // anno di nascita
 Set<Integer> coprotagonisti;  // codici degli attori che hanno recitato con this
 
-*** PROJ Il grafo degli autori deve essere costruito usando la classe Attore nel seguente modo: -> PUNTO 1-2-3
+*** PROJ Il grafo degli autori deve essere costruito usando la classe Attore nel seguente modo: -> PUNTO 4-5-6
 1. per prima cosa è necessario leggere il file name.basics.tsv e scartare tutti nomi che contengono \N nel campo data di nascita (birthYear) e che non contengono le parole actor o actress nel quinto campo (primaryProfession);
         in altre parole ci interessano solamente le persone che sono attori o attrici di cui è noto l'anno di nascita.
 
@@ -54,18 +54,20 @@ Set<Integer> coprotagonisti;  // codici degli attori che hanno recitato con this
 
 3. il programma deve salvare sul file di testo nomi.txt il codice, il nome e l'anno di nascita di ogni attore in formato tsv: ogni riga del file deve contenere i dati di una singolo attore separati dal carattere \t. Gli attori devono essere scritti nel file in ordine di codice crescente. Il numero totale di righe deve essere 383965; per facilitarvi nel debug il file corretto nomi.txt è allegato al progetto, ma il vostro programma deve essere in grado di ricostruirlo.
 
-        Apro il file name.basics.tsv in lettura e lo carico in RAM con buffer da 64KB, e CONTEMPORANEAMENTE apro anche il file nomi.txt in scrittura,
-        ogni volta leggo una riga, verifico i campi e in caso sintetizzo l'attore e scrivo il file nomi.txt. Se i campi lo impediscono allora salto la riga!
+        Apro il file name.basics.tsv in lettura e lo carico in RAM con buffer da 64KB, seleziono gli attori validi e li inserisco nella HashMap.
+        Al termine della lettura apro nomi.txt in scrittura e riordino le chiavi già presenti in HashMap -> scrittura ordinata.
 
 
-
-4. successivamente il programma deve leggere il file title.principals.tsv e utilizzare i dati per calcolare i coprotagonisti di ogni attore; per ogni titolo si deve costruire l'insieme cast delle persone che ci hanno lavorato e che appartengono alla collezione attori. Successivamente per ogni coppia a1, a2 di elementi in cast si deve aggiungere il codice di a1 alla variabile d'istanzacoprotagonisti di a2 e il codice di a2 al variabile d'istanza coprotagonisti di a1;
+4. successivamente il programma deve leggere il file title.principals.tsv e utilizzare i dati per calcolare i coprotagonisti di ogni attore; per ogni titolo si deve costruire l'insieme cast delle persone che ci hanno lavorato e che appartengono alla collezione attori. Successivamente per ogni coppia a1, a2 di elementi in cast si deve aggiungere il codice di a1 alla variabile d'istanza coprotagonisti di a2 e il codice di a2 al variabile d'istanza coprotagonisti di a1;
         si noti che non si deve mai aggiungere un attore fra i coprotagonisti di se stesso (quindi coprotagonisti di a1 non deve contenere il codice di a1)
 
 5. terminata l'elaborazione del file title.principals.tsv il programma deve scrivere il file grafo.txt considerando gli attori in ordine di codice crescente; per ogni attore deve essere indicato il suo codice, il numero dei suoi coprotagonisti e l'elenco ordinato dei codici dei suoi coprotagonisti; i valori su una linea devono essere separati dal carattere \t. Dal punto di vista del grafo, questo elenco può essere visto come l'elenco dei nodi (un nodo per riga) con indicato per ogni nodo l'elenco dei nodi a cui è adiacente. Ad esempio, la linea: 101 6 2 5 9 22 159 405 indica che l'attore di codice 101 è adiacente ai 6 attori 2 5 9 22 159 405. Con i dati forniti, il grafo degli autori deve contenere 39959114 archi; il file 100grafo.txt contiene le prime 100 righe del file che rappresenta tale grafo. (matrice di adiacenza per la sintesi del grafo!)
 
 
 6. le istruzioni per la compilazione del programma java devono essere inserite nel makefile in modo che la compilazione avvenga scrivendo semplicemente make sulla linea di comando; successivamente il programma verrà testato con il comando java CreaGrafo attori.tsv titoli.tsv (con opportuni file .tsv). Se questa procedura non funziona (per qualsiasi motivo il programma non viene eseguito correttamente) il progetto sarà considerato insufficiente senza ulteriori indagini.
+
+      Apro il file title.principals.tsv per l'analisi delle collaborazioni -> scrivere il file grafo.txt e rimepire i campi "coprotagonista" di ogni attore SE ERA VALIDO!
+      CAPIRE MEGLIO COSA CHIEDE.
 
 - Importante l'algoritmo utilizzato per la costruzione del grafo deve leggere i due file di input una sola volta e deve utilizzare una strategia e strutture dati efficienti; data la dimensione dei dati non devono essere utilizzate strutture dati con operazioni di costo lineare. Il tempo di esecuzione di CreaGrafo deve essere inferiore ai 5 minuti, altrimenti l'esecuzione verrà interrotta e il progetto verrà considerato insufficiente.
 
