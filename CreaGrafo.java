@@ -79,6 +79,7 @@ public class CreaGrafo {
 
 
     // ===== LETTURA NAME.BASICS.TSV - SCRITTURA NOMI.TXT ===== 
+    System.err.println("===== LETTURA NAME.BASICS.TSV - SCRITTURA NOMI.TXT =====");
     // creo la mappa dagli attori ai codici
     Map<Integer,Attore> attori = new HashMap<Integer,Attore>();
     // Array dei codici  ordinati degli attori
@@ -92,7 +93,7 @@ public class CreaGrafo {
         2. per ordinare i codici degli attori (che ci serviranno sia in nomi.txt) si usa un'istanza di ArrayList 
         che riordiniamo per codice crescente in modo da poterlo scorrere e accedere agli attori in base alle chiavi (codici ordinati) nella HashMap
       */
-      BufferedReader br = new BufferedReader(new FileReader(argv[0]));
+      BufferedReader br = new BufferedReader(new FileReader(argv[0]), 65536);
       String line;
       // si deve scartare la prima riga che non ci interessa
       br.readLine();
@@ -122,8 +123,9 @@ public class CreaGrafo {
       // chiudo file attori.tsv
       br.close();
 
+      System.err.println("--- Creazione 'nomi.txt' ---");
       // si passa alla scrittura di nomi.txt
-      BufferedWriter bw = new BufferedWriter(new FileWriter("nomi.txt"));
+      BufferedWriter bw = new BufferedWriter(new FileWriter("nomi.txt"), 65536);
       // i nomi devono essere scritti in ordine crescente di codice -> riordino le chiavi in HashMap e poi da ognuna ricavo l'attore
       // vettore con codici degli attori validi ordinati in ordine crescente (solo inseriti vanno ordinati)
       codici.sort((a,b)-> a-b);
@@ -144,9 +146,9 @@ public class CreaGrafo {
 
 
     // ===== LETTURA TITLE.PRINCIPALS.TSV - SCRITTURA GRAFO.TXT ===== 
+    System.err.println("===== LETTURA TITLE.PRINCIPALS.TSV - SCRITTURA GRAFO.TXT =====");
     // mappa film-cast
     Map<Integer,Set<Integer>> films = new HashMap<Integer,Set<Integer>>();
-    System.err.println("INIZIO LETTURA TITOLI.TSV");
 
     try{
       /*
@@ -159,7 +161,7 @@ public class CreaGrafo {
         - Aggiunta un nuovo campo alla struttura Attore: ncollab
       */
       // apro il file dei titoli in lettura
-      BufferedReader br = new BufferedReader(new FileReader(argv[1]));
+      BufferedReader br = new BufferedReader(new FileReader(argv[1]), 65536);
       String line;
       // si deve scartare la prima riga che non ci interessa
       br.readLine();
@@ -183,11 +185,10 @@ public class CreaGrafo {
         }
         // altrimenti nulla! non si tratta di un attore quindi non ci interessa
       }
-      System.err.println("FINE LETTURA TITOLI.TSV");
+      
       // chiudo titoli.tsv
       br.close();
 
-      System.err.println("COMPILAZIONE DEI VARI COPROT");
       // si passa alla definizione dei campi coprotagonisti e di ncollab di ogni Attore
       for(Set<Integer> s: films.values()){
         // devo aggiornare i vari campi coprot e ncollab di ogni attore del cast di un certo film
@@ -197,14 +198,10 @@ public class CreaGrafo {
           att.addCop(s);
         }
       }
-      System.err.println("FINE COMPILZIONE DEI COPROT");
 
-      // debug 
-      // stampaHashMapAttori(attori);
-
-      
+      System.err.println("--- Creazione 'grafo.txt' ---");
       // dobbiamo scrivere grafo.txt: 
-      BufferedWriter bw = new BufferedWriter(new FileWriter("grafo.txt"));
+      BufferedWriter bw = new BufferedWriter(new FileWriter("grafo.txt"), 65536);
 
       // scorriamo codici per l'ordinamento crescente
       for(int c: codici){
