@@ -174,14 +174,14 @@ e 350125.39180341 con contenuto:
 
 Un commento sul parametro -s: ricordate che dal momento in cui viene chiusa la pipe il programma cammini.out e tutti i suoi thread terminano dopo 5 secondi; se in questo tempo i thread non hanno avuto il tempo di calcolare il cammino minimo questo non sarà calcolato e troverete il file xxxx.yyyy vuoto. Usando il parametro -s di cammini.py potete ritardare la chiusura delle pipe in cammini.out e quindi dare più tempo ai thread. Attenzione però che un tempo superiore ai 20 secondi per la ricerca di un cammino denota probabilmente un errore o l'uso di strutture dati non efficienti e quindi un progetto non sufficiente.
 
-* Consegna del progetto:
+* PROJ Consegna del progetto:
 - La consegna deve avvenire esclusivamente mediante GitHub. Se non lo avete già createvi un account e create un repository privato dedicato a questo progetto. Aggiungete come collaboratore al repository l’utente Laboratorio2B in modo che i docenti abbiano accesso al codice.
 - IMPORTANTE: la consegna effettiva del progetto per un dato appello consiste nello scrivere l'url per la clonazione del vostro progetto nell'apposito contenitore consegna su moodle. L'url deve essere della forma git@github.com:user/progetto.git (non deve quindi iniziare per https). Dopo la data di consegna non dovete fare altri commit al progetto. Ricordatevi che almeno cinque giorni prima della data di consegna dovete iscrivervi all'appello su esami.unipi.it.
 
 Nel repository dovete mettere solamente i file veramente essenziali per la compilazione del progetto: quindi non i file .o gli eseguibili, i file di configurazione o i file di input che vi ho fornito io.
 All'interno del repository deve essere presente un file README.md contente la descrizione dei seguenti punti:
 
-    + il dettaglio di come avviene il parsing delle righe del file di testo name.basics.tsv nel programma Java
+    - il dettaglio di come avviene il parsing delle righe del file di testo name.basics.tsv nel programma Java
     + il dettaglio dell'implementazione della coda FIFO nell'algoritmo BFS, e quali informazioni vengono memorizzate in ogni elemento della coda
     + il dettaglio di come vengono ricostruiti i nodi intermedi del cammino minimo in cammini.c
     + il dettaglio di come il thread gestore di segnali comunica al programma principale di interrompere l'elaborazione
