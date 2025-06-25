@@ -10,7 +10,6 @@ import java.io.FileWriter;
 
 
 
-
 public class CreaGrafo {
 
   // metodo per ricavare dalla forma tsv un intero (es. tt000034->34, nm023033->23033)
@@ -48,18 +47,21 @@ public class CreaGrafo {
     try{
       /* 
         1. apro attori.tsv in lettura con buffer da 64KB (invece che da 8KB come di default) la scelta è motivata 
-        dalla grandezza dei file, per minimizzare il numero di accessi al disco il modulo Buffer
-        usa già una sua bufferizzazione da 8KB, la facciamo da 64KB per ottimizzare: 2^10 * 2^6= 65536 (stessa cosa per il file in scrittura)
+        dalla grandezza dei file: per minimizzare il numero di accessi al disco il modulo Java Buffer
+        usa già una sua "bufferizzazione" dei file da 8KB, la faccio da 64KB per ottimizzare: 2^10 * 2^6= 65536 (stessa cosa per i file in scrittura)
+          i tempi rientrano nei limiti come richiesto anche con buffer standard, si tratta solo di un dettaglio incontrato durante la lettura della funz
+          nei manuali: https://docs.oracle.com/javase/8/docs/api/java/io/BufferedReader.html
         2. per ordinare i codici degli attori (che ci serviranno sia in nomi.txt) si usa un'istanza di ArrayList 
         che riordiniamo per codice crescente in modo da poterlo scorrere e accedere agli attori in base alle chiavi (codici ordinati) nella HashMap
+        contenente le associazioni tra codice attore e istanza di Attore
       */
       BufferedReader br = new BufferedReader(new FileReader(argv[0]), 65536);
       String line;
-      // si deve scartare la prima riga che non ci interessa
+      // si deve scartare la prima riga che non ci interessa (specifica la suddivisione dei campi nei file .tsv)
       br.readLine();
       
       while((line = br.readLine())!=null) {
-        // verifico che la linea sia valida (anno di nascita e professione) se lo è allora aggiorno nomi.txt e attori
+        // verifico che la linea sia valida (anno di nascita e professione) se lo è allora aggiorno codici e attori
         String[] campi = tokenize(line);
 
         // verifico le condizioni e agisco di conseguenza
@@ -70,7 +72,7 @@ public class CreaGrafo {
               // entrambe le cond verificate-> creiamo un nuovo Attore
               int c = ricava_intero(campi[0]);
               Attore a = new Attore(c, campi[1], Integer.parseInt(campi[2]));
-              // e aggiorno la lista dei codici
+              // aggiorno la lista dei codici
               codici.add(c);
               // aggiorno attori
               attori.put(c, a);
@@ -86,14 +88,14 @@ public class CreaGrafo {
       System.err.println("--- Creazione 'nomi.txt' ---");
       // si passa alla scrittura di nomi.txt
       BufferedWriter bw = new BufferedWriter(new FileWriter("nomi.txt"), 65536);
-      // i nomi devono essere scritti in ordine crescente di codice -> riordino le chiavi in HashMap e poi da ognuna ricavo l'attore
+      // i nomi devono essere scritti in ordine crescente di codice -> riordino le chiavi in codici tramite le quali 
+      // accedo in maniera ordinata ad attori e poi da ogni chiave ricavo l'attore associati da scrivere su nomi.txt
       // vettore con codici degli attori validi ordinati in ordine crescente (solo inseriti vanno ordinati)
       codici.sort((a,b)-> a-b);
 
       // stampo ogni attore associato alle chiavi
-      for(Integer k: codici){
+      for(int k: codici)
         bw.write(attori.get(k).toString() + "\n");
-      }
       // al termine richiudo il file nomi.txt
       bw.close();
       
@@ -107,18 +109,19 @@ public class CreaGrafo {
 
     // ===== LETTURA TITLE.PRINCIPALS.TSV - SCRITTURA GRAFO.TXT ===== 
     System.err.println("===== LETTURA TITLE.PRINCIPALS.TSV - SCRITTURA GRAFO.TXT =====");
-    // mappa film-cast
+    // mappa film-cast 
     Map<Integer,Set<Integer>> films = new HashMap<Integer,Set<Integer>>();
 
     try{
       /*
-        1. si apre titoli.tsv in lettura da cui sintetizziamo film e i relativi cast -> 
-        HashMap<Integer (film), HashSet<Integer> (cast= insieme dei codici)>
-        2. per ogni film (chiave) usiamo il cast (set associato) per la costruzione dei campi coprotagonisti di ogni attore coinvolto
-        3. usiamo codici (Arraylist ordinato) per lo scorrimento e l'accesso agli attori e stampo in grafo.txt la "matrice di adiacenza" dell'intero grafo costruibile
+        1. si apre titoli.tsv in lettura da cui sintetizziamo film e i relativi cast di attori-> 
+        HashMap<Integer (film), HashSet<Integer> (cast= insieme dei codici degli attori che vi hanno partecipato)>
+        2. per ogni film (chiave) usiamo il cast (set associato) per la costruzione dei campi coprotagonisti di ogni attore coinvolto,
+        per ogni attore nel cast devono essere aggiunti tutti gli altri attori al proprio insieme di coprotagonisti (eccetto se stesso)
+        3. usiamo codici (Arraylist ordinato) per lo scorrimento e l'accesso agli attori, 
+        e stampo in grafo.txt la "matrice di adiacenza" (nel formato richiesto -> Attore.toNode()) dell'intero grafo costruibile
         
         ATT: non tutti i collaboratori ad un film potrebbero essere per forza attori! Andrà controllato tramite l'HashMap di attori creata con i soli attori validi
-        - Aggiunta un nuovo campo alla struttura Attore: ncollab
       */
       // apro il file dei titoli in lettura
       BufferedReader br = new BufferedReader(new FileReader(argv[1]), 65536);
@@ -149,12 +152,11 @@ public class CreaGrafo {
       // chiudo titoli.tsv
       br.close();
 
-      // si passa alla definizione dei campi coprotagonisti e di ncollab di ogni Attore
+      // si passa alla definizione dei campi coprotagonisti di ogni Attore
       for(Set<Integer> s: films.values()){
-        // devo aggiornare i vari campi coprot e ncollab di ogni attore del cast di un certo film
         for(int a: s){
           Attore att = attori.get(a);
-          // aggiorno i coprot dell'attore (e ncollab)
+          // aggiorno i coprot dell'attore
           att.addCop(s);
         }
       }

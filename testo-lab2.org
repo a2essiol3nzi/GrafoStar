@@ -5,7 +5,7 @@ L'obiettivo del progetto è costruire un grafo degli attori e delle loro collabo
 
 La correzione avverrà sulla macchina Linux laboratorio2.di.unipi.it al quale potete accedere tutti via ssh (con la VPN se da fuori dell'Università) utilizzando le credenziali universitarie. Non aspettate il giorno della consegna per provarla perché la macchina a volte è irraggiungibile. Lo spazio sul disco è limitato quindi dopo gli esperimenti cancellate i vostri dataset più grandi.
 
-* PROJ CreaGrafo.java
+* DONE CreaGrafo.java
 
 Il primo passo del progetto consiste nel costruire il grafo degli attori, si tratta di un grafo non orientato in cui i nodi rappresentano attori o attrici ed esiste un arco tra l'attore i e l'attore j se essi hanno partecipato insieme in almeno un film o altro evento.
 
@@ -45,7 +45,7 @@ String nome;                  // none (e cognome) dell'attore
 int anno;                     // anno di nascita
 Set<Integer> coprotagonisti;  // codici degli attori che hanno recitato con this
 
-*** PROJ Il grafo degli autori deve essere costruito usando la classe Attore nel seguente modo: -> PUNTO 4-5-6
+*** DONE Il grafo degli autori deve essere costruito usando la classe Attore nel seguente modo:
 1. per prima cosa è necessario leggere il file name.basics.tsv e scartare tutti nomi che contengono \N nel campo data di nascita (birthYear) e che non contengono le parole actor o actress nel quinto campo (primaryProfession);
         in altre parole ci interessano solamente le persone che sono attori o attrici di cui è noto l'anno di nascita.
 
@@ -70,6 +70,11 @@ Set<Integer> coprotagonisti;  // codici degli attori che hanno recitato con this
       NOTA: per l'ordinamento dei codici degli attori abbiamo a disposizione la vecchia struttura dati della prima parte, mentre per l'ord dei coprot si usa TreeSet che aggiorna l'ordinamento mano mano.
 
 - Importante l'algoritmo utilizzato per la costruzione del grafo deve leggere i due file di input una sola volta e deve utilizzare una strategia e strutture dati efficienti; data la dimensione dei dati non devono essere utilizzate strutture dati con operazioni di costo lineare. Il tempo di esecuzione di CreaGrafo deve essere inferiore ai 5 minuti, altrimenti l'esecuzione verrà interrotta e il progetto verrà considerato insufficiente.
+**** Tentativo di ottimizzazione:
+- TreeSet buffer file (laptop): 64KB-> 1m49,676s / 1m47,423s, 8KB-> 2m1,410s / 1m57,961s
+- HashSet buffer file (laptop): 64KB-> 1m16,550s / 1m18,599s, 8KB-> 1m18,197s / 1m17,869s
+        L'approccio migliore è HashSet invece che TreeSet, i coprot andranno letti una volta sola quindi il costo è uguale ma con prestazioni migliori!
+        INOLTRE: facendo confronti entrambe le versioni necessitano di una quantità di RAM tra 4 e 5 GB-> la differenza è molto bassa, tanto vale usare un HashSet!
 
 
 * TODO cammini.c

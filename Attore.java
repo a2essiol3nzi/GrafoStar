@@ -1,5 +1,6 @@
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Set;
-import java.util.TreeSet;
 
 public class Attore {
   int codice;                   // codice univoco dell'attore
@@ -13,22 +14,28 @@ public class Attore {
     this.codice = code;
     this.nome = nome_cognome;
     this.anno = birthyear;
-    // implemento Set tramite TreeSet perché è importante l'ordine, dovranno essere stampati in ordine crescente.
-    // TreeSet mantiene un ordinamento mano a mano che gli elementi vengono inseriti
-    this.coprotagonisti = new TreeSet<Integer>(); 
+    // implemento Set tramite HashSet per inserirli con costo O(1), dopodiche li riordinerò per leggerli
+    // meno efficiente in termini di spazio, fa una copia dell'intero Set e lo riordina, ma MOLTO più veloce!
+    // se avessimo dovuto accedere più di una volta al campo coprot in ordine crescente di codice, allora forse era più conveniente TreeSet
+    this.coprotagonisti = new HashSet<Integer>(); 
   }
 
+  // override del metodo già esistente per la stampa 
   @Override
   public String toString() {
     return String.format("%d\t%s\t%d",codice,nome,anno);
   }
 
-  // Metodo della classe attore che ricava la rappresentazione dell'attore come nodo del GRAFO DELLE STAR: codice coprot.size() coprot.sort()
+  // Metodo della classe attore che ricava la rappresentazione dell'attore come nodo del GRAFO DELLE STAR: 
+  // codice coprot.size() coprot.sort()
   public String toNode() {
+    ArrayList<Integer> aC = new ArrayList<Integer>(this.coprotagonisti);
+    // devo riordinarli adesso
+    aC.sort((a,b)-> a-b);
     String copString = "";
     int ncollab = 0;
     // concatenazione dei coprot
-    for(int i: this.coprotagonisti){
+    for(int i: aC){
       copString = copString + "\t" + i;
       ncollab++;
     }
@@ -40,10 +47,8 @@ public class Attore {
   public void addCop(Set<Integer> cast) {
     for(Integer c: cast){
       // un attore non può far parte dei suoi coprot
-      if(c != this.codice){
-        this.coprotagonisti.add(c); // solitamente insieme a TreeSet ma se si lavora con semplici interi
-                                      // l'ordinamento crescente è quello predefinito
-      }
+      if(c != this.codice)
+        this.coprotagonisti.add(c); 
     }
   }
 
