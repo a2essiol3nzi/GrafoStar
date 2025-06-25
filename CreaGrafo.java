@@ -3,7 +3,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileReader;
@@ -25,45 +24,6 @@ public class CreaGrafo {
     for (int i = 0; i < campi.length; i++)
       campi[i] = campi[i].trim();
     return campi;
-  }
-
-  // =========================== debug
-  public static void stampaSetConSeparatore(Set<?> set, String separatore, String c) {
-    String risultato = set.stream()
-        .map(Object::toString)
-        .collect(Collectors.joining(separatore));
-    System.out.println(c + ": " + risultato);
-  }
-
-  // stampa Map
-  public static void stampaMappa(Map<Integer, Set<Integer>> mappa) {
-    for (Map.Entry<Integer, Set<Integer>> entry : mappa.entrySet()) {
-      Integer chiave = entry.getKey();
-      Set<Integer> valori = entry.getValue();
-
-      // Costruisco la stringa dei valori separati da tab
-      StringBuilder sb = new StringBuilder();
-      for (Integer v : valori) {
-        sb.append(v).append("\t");
-      }
-
-      // Rimuovo eventuale tab finale e stampo
-      System.out.println(chiave + " -> " + sb.toString().trim());
-    }
-  }
-
-  public static void stampaHashMapAttori(Map<Integer, Attore> mappa) {
-    for (Map.Entry<Integer, Attore> entry : mappa.entrySet()) {
-      Integer codice = entry.getKey();
-      Attore attore = entry.getValue();
-      // Costruiamo la stringa dei coprotagonisti separati da TAB
-      StringBuilder copString = new StringBuilder();
-      for (Integer cop : attore.coprotagonisti) {
-          copString.append(cop).append("\t");
-      }
-      // Stampiamo: codice TAB ncollab TAB lista coprot
-      System.out.println(codice + "\t" + attore.coprotagonisti.size() + "\t" + copString.toString().trim());
-    }
   }
 
 
@@ -219,9 +179,6 @@ public class CreaGrafo {
       e.printStackTrace();
       System.exit(3);
     }
-
-
-
 
   }
 }

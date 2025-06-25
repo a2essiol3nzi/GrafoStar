@@ -29,10 +29,10 @@ public class Attore {
     int ncollab = 0;
     // concatenazione dei coprot
     for(int i: this.coprotagonisti){
-      copString = copString + i + "\t";
+      copString = copString + "\t" + i;
       ncollab++;
     }
-    return String.format("%d\t%d\t%s", this.codice,ncollab,copString);
+    return String.format("%d\t%d%s", this.codice,ncollab,copString);
   }
 
 
