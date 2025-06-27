@@ -79,7 +79,7 @@ Set<Integer> coprotagonisti;  // codici degli attori che hanno recitato con this
 
 * TODO cammini.c
 
-La seconda parte del progetto consiste in un programma C che legge i dati del grafo degli autori ed effettua il calcolo di cammini minimi. All'intero del programma C i nodi del grafo devono essere rappresentati dal tipo attore così definito:
+La seconda parte del progetto consiste in un programma C che legge i dati del grafo degli attori ed effettua il calcolo di cammini minimi. All'intero del programma C i nodi del grafo devono essere rappresentati dal tipo attore così definito:
 
 typdef struct {
   int codice;         // codice attore
@@ -91,7 +91,7 @@ typdef struct {
 
 dove numcop il numero di nodi adiacenti nel grafo, e cop è il puntatore un array di lunghezza numcop contenente i codici dei nodi adiacenti.
 
-+ Se il grafo ha tot autori esso deve essere rappresentato da un array attori contenente tot oggetti di tipo attore ordinati per codice crescente, in altre parole deve essere attori[i].codice < attori[i+1].codice per i=0,...,tot-2.
++ Se il grafo ha tot attori esso deve essere rappresentato da un array attori contenente tot oggetti di tipo attore ordinati per codice crescente, in altre parole deve essere attori[i].codice < attori[i+1].codice per i=0,...,tot-2.
         Questo è importante in quanto nel seguito ogni volta che dato un codice c si vuole accedere al relativo attore si deve effettuare una ricerca binaria sull'array attori; la ricerca binaria deve essere effettuata utilizzando la funzione di libreria bsearch(3), consultare la pagina man per i dettagli.
 
 + L'eseguibile cammini.out deve essere invocato dalla linea di comando scrivendo
