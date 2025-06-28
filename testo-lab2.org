@@ -77,11 +77,11 @@ Set<Integer> coprotagonisti;  // codici degli attori che hanno recitato con this
         INOLTRE: facendo confronti entrambe le versioni necessitano di una quantità di RAM tra 4 e 5 GB-> la differenza è molto bassa, tanto vale usare un HashSet!
 
 
-* TODO cammini.c
+* PROJ cammini.c
 
 La seconda parte del progetto consiste in un programma C che legge i dati del grafo degli attori ed effettua il calcolo di cammini minimi. All'intero del programma C i nodi del grafo devono essere rappresentati dal tipo attore così definito:
 
-typdef struct {
+typedef struct {
   int codice;         // codice attore
   char *nome;         // nome attore
   int anno;           // anno di nascita
@@ -100,7 +100,13 @@ dove filenomi e filegrafo devono essere i file nomi.txt e grafo.txt costruiti da
 
 Il grafo deve essere costruito mediante il seguente procedimento:
 1. per prima cosa si legge il file nomi.txt e si crea l'array attori inizializzando solamente i campi codice, nome e anno di ogni attore
+        Si crea array di dimensione dinamica tramite malloc e realloc. L'array dovrà essere di tipo "attore*".
+        Per farlo si dovrà creare una funzione di parsing delle righe come si era fatto anche in java (tokenize)
+
 2. successivamente si deve leggere il file grafo.txt utilizzando uno schema produttori consumatori. Il thread principale svolge il ruolo di produttore e legge le linee del file una alla volta con getline(3) e copia il puntatore alla linea letta su un buffer condiviso con i consumatori (il cui numero è dato dal parametro di input numconsumatori). I consumatori leggono le linee che vengono loro passate e utilizzano i dati in essa contenuti per inizializzare i campi numcop e cop di ogni attore. Dopo aver completato la lettura del file grafo.txt questi thread consumatori possono terminare
+       Definire tokenize() di una linea con numero indefinito di campi.
+       Implementare un paradigma produttore-consumatori (funzione consumatori), buffer e struct apposita per passare degli argom ai thread
+
 
 3. Terminata la lettura del grafo, il programma deve creare nella directory corrente una pipe cammini.pipe e aprirla in lettura. Successivamente il programma deve leggere dalla pipe due interi a 32 bit a e b e per ogni coppia di interi letta deve creare un nuovo thread che effettui il calcolo del cammino minimo tra a e b (si veda la sezione relativa per i dettagli).
 
@@ -181,7 +187,7 @@ Un commento sul parametro -s: ricordate che dal momento in cui viene chiusa la p
 Nel repository dovete mettere solamente i file veramente essenziali per la compilazione del progetto: quindi non i file .o gli eseguibili, i file di configurazione o i file di input che vi ho fornito io.
 All'interno del repository deve essere presente un file README.md contente la descrizione dei seguenti punti:
 
-    - il dettaglio di come avviene il parsing delle righe del file di testo name.basics.tsv nel programma Java
+    - il dettaglio di come avviene il parsing delle righe del file di testo name.basics.tsv nel programma Java (aggiornare dopo la modifica)
     + il dettaglio dell'implementazione della coda FIFO nell'algoritmo BFS, e quali informazioni vengono memorizzate in ogni elemento della coda
     + il dettaglio di come vengono ricostruiti i nodi intermedi del cammino minimo in cammini.c
     + il dettaglio di come il thread gestore di segnali comunica al programma principale di interrompere l'elaborazione

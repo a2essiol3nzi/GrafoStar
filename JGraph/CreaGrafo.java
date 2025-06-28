@@ -9,25 +9,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 
 
-
 public class CreaGrafo {
 
-  // metodo per ricavare dalla forma tsv un intero (es. tt000034->34, nm023033->23033)
-  private static int ricava_intero (String s){
-    return Integer.parseInt(s.substring(2));
-  }
-
-  // tochenizzare una riga
-  private static String[] tokenize(String line){
-    String[] campi = line.split("\t");
-    for (int i = 0; i < campi.length; i++)
-      campi[i] = campi[i].trim();
-    return campi;
-  }
-
-
-
-  // ===== main =====
   public static void main(String[] argv){
     
     // argomenti sbagliati
@@ -62,7 +45,8 @@ public class CreaGrafo {
       
       while((line = br.readLine())!=null) {
         // verifico che la linea sia valida (anno di nascita e professione) se lo è allora aggiorno codici e attori
-        String[] campi = tokenize(line);
+        // tokenizzo la stringa usando come delim "\t"
+        String[] campi = line.split("\t");
 
         // verifico le condizioni e agisco di conseguenza
         if(!campi[2].equals("\\N")){
@@ -70,7 +54,7 @@ public class CreaGrafo {
           for(String p: professions){
             if(p.equals("actor") || p.equals("actress")){ 
               // entrambe le cond verificate-> creiamo un nuovo Attore
-              int c = ricava_intero(campi[0]);
+              int c = Integer.parseInt(campi[0].substring(2));
               Attore a = new Attore(c, campi[1], Integer.parseInt(campi[2]));
               // aggiorno la lista dei codici
               codici.add(c);
@@ -134,13 +118,13 @@ public class CreaGrafo {
       // altrimenti aggiungo l'attore al set associato alla chiave già presente nella HashMap
       while((line = br.readLine())!=null){
         // tokenizzo la linea
-        String[] campi = tokenize(line);
+        String[] campi = line.split("\t");
 
         // verifico se il collaboratore del film è un attore
-        int att_cod = ricava_intero(campi[2]);
+        int att_cod = Integer.parseInt(campi[2].substring(2));
         if(attori.containsKey(att_cod)){
           // se abbiamo un attore del film dobbbiamo aggiungerlo al relativo cast -> prendo la chiave dal primo campo
-          int titolo = ricava_intero(campi[0]);
+          int titolo = Integer.parseInt(campi[0].substring(2));
           if(!films.containsKey(titolo)) // nuovo film
             films.put(titolo, new HashSet<Integer>());  // uso un HashSet perche le operazioni base hanno costo O(1)
           // aggiorno il cast
