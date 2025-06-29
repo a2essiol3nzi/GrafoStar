@@ -9,8 +9,15 @@ typedef struct {
   int *cop;           // array coprotagonisti == array dei nodi adiacenti
 } attore;
 
-// funzione che tokenizza una riga letta da un file
-char** tokenize(char* line); 
+// funzione che inizializza il grafo, inizializza i 3 campi ricavabili dal 1o file:
+// si legge riga per riga (nel formato a noi noto) e da ognuna ricaviamo i dati utili.
+attore* init_gr(FILE* f, int* len);
 
 // funzione di comparazione tra codici di attori
 int cmp_att(attore* a, attore* b);
+
+
+
+
+// funzione che tokenizza una riga letta da un file
+char** tokenize(char* line); 

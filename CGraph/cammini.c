@@ -23,54 +23,17 @@ int main(int argc, char** argv)
   fprintf(stderr,"===== LETTURA NOMI.TXT - CREAZIONE ARRAY DI ATTORI =====\n");
   /* 
     1. Si deve aprire il file dei nomi e da ogni riga inizializzare un nodo con i campi contenuti: codice nome e anno di nascita
-    2. Si legge riga per riga con getline(), e si tokenizza tramite strtok() (spiegato di seguito come con una funzione apposita), 
-    e inseriamo ogni attore nell'array grafo allocato dinamicamente (dovrà poi essere riordinato in base ai codici degli attori prima 
-    della lettura di filegrafo).
+    2. si usa una funziona apposita init_gr() per l'analisi del primo file, verrà aggiornato grafo e restituita la sua lunghezza
   */
 
   // si deve leggere filenomi
   // si usa la xfopen, esegue la classica funzione fopen (apertura file) ma esegue anche il controllo sul successo dell'operazione (xerrori.*)
   // stampando un messaggio di errore e terminando con exitcode!=0 in caso di insuccesso
   FILE* fn = xfopen(argv[1],"r",QUI);
-  // inizializzazione dell'array di attori per la rappresentazione del grafo, e del suo indice di lunghezza
-  // dim iniziale settata a 1024 attori (per un grande numero di attori ~400.000 usa ~20 realloc e permette di non lasciare
-  // troppa memoria inutilizzata dopo l'ultima)
-  int capacita = 1024;
-  attore* grafo = malloc(capacita * sizeof(attore));
-  assert(grafo!=NULL);
+  // inizializzazione dell'array di attori per la rappresentazione del grafo, e del suo indice di lunghezza. Uso la funzione init_gr() definita appositamente
+  // file utils.*
   int grl = 0;
-  // var per lettura file
-  int codice, anno;
-  char* nome;
-
-  // si fa il parsing della linea in maniera semplice dato che sono di dimensione fissa, 
-  // possiamo usare direttamente fscanf per semplificare le cose: %ms è un'estensione GNU (vista a lezione) 
-  // per l'allocazione automatica di una stringa
-  // iniziamo la lettura del file
-  while(1){
-    size_t e = fscanf(fn,"%d\t%ms\t%d",&codice,nome,&anno);
-    // verifico la lettura
-    if(e!=3){
-      if(e==EOF) break;
-      else xtermina("Errore lettura filenomi",QUI);
-    }
-    // prima di inserire l'attore verifico se è necessaria una realloc
-    if(grl==capacita){
-      capacita *= 2;
-      grafo = realloc(grafo, capacita*sizeof(attore));
-      assert(grafo!=NULL);
-    }
-    // inizializzo l'attore (codice nome anno)
-    grafo[grl] = (attore){
-      .codice = codice,
-      .nome = strdup(nome), // allocazione dinamica del nome che andrà deallocato
-      .anno = anno
-    };
-    // libero l'allocazione di nome, già copiata
-    free(nome);
-    // incremento la lunghezza di grafo
-    grl++;
-  }
+  attore* grafo = init_gr(fn,&grl);
   //chiudo file finito di leggere
   if(fclose(fn)==EOF) xtermina("Errore chiusura filenomi",QUI);
 
@@ -89,15 +52,16 @@ int main(int argc, char** argv)
   3. assegnano i valori trovati ai campi degli attori in grafo per definire completamente IL GRAFO DELLE STAR
   
   Ogni thread deve leggere dal buffer CONDIVISO (serve sincro), ricavare i dati da assegnare ad un certo attore AL QUALE NESSUN ALTRO THREAD 
-  ACCEDERÀ -> i thread potranno accedere contemporaneamente all'array grafo, perche nessuno modificherà mai lo stesso attore, e anche nella
-  lettura dei codici per la ricerca non si avranno problemi in quanto codice non verrà mai modificato dopo l'inizializzazione!
+  ACCEDERÀ -> i thread potranno accedere contemporaneamente all'array grafo, perche :
+  Non c'è concorrenza di scrittura: ogni oggetto è scritto solo da un thread.
+  Non c'è concorrenza lettura/scrittura: codice viene solo letto, e mai modificato.
+  -> non vi è race condition sui dati in grafo
   */
-
-  // creare buffer del paradigma, thread consumatori, struct da passare ai consuma, funzioni per le tipologie di thread
-  // decidere il meotodo di sincronizzazione tra thread per l'accesso al buffer
-
-  // provare a mettere l'inizializzazione di grafo tutta in una funzione "init_grafo"
-
+  // Per la sincronizzazione dei thread sul buffer (circolare) condiviso ho deciso di usare 
+  // inizializzo buffer condiviso (circolare), dim buffer (data anche la grandezza del file da leggere) 64
+  char* buffer[64];
+  // indici di inserimento ed estrazione (inizialmente entrambi a 0)
+  int in = 0, out = 0;
 
 
 
