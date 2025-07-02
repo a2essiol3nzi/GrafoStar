@@ -37,6 +37,7 @@ void xclose(int fd, int linea, char *file);
 int xpthread_create(pthread_t *thread, const pthread_attr_t *attr,
                           void *(*start_routine) (void *), void *arg, int linea, char *file);
 int xpthread_join(pthread_t thread, void **retval, int linea, char *file);
+int xpthread_detach(pthread_t thread, int linea, char* file);
 
 // mutex 
 int xpthread_mutex_init(pthread_mutex_t *restrict mutex, const pthread_mutexattr_t *restrict attr, int linea, char *file);

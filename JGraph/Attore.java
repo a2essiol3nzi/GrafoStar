@@ -32,14 +32,13 @@ public class Attore {
     ArrayList<Integer> aC = new ArrayList<Integer>(this.coprotagonisti);
     // devo riordinarli adesso
     aC.sort((a,b)-> a-b);
-    String copString = "";
-    int ncollab = 0;
+    // usare l'op di concatenazione è troppo costoso, String è immutabile percio ogni volta viene creato una nuova istanza,
+    // Stringbuilder mette a disposizione metodi per la costruzione di una stringa dinamica, come append()
+    StringBuilder copString = new StringBuilder();
     // concatenazione dei coprot
-    for(int i: aC){
-      copString = copString + "\t" + i;
-      ncollab++;
-    }
-    return String.format("%d\t%d%s", this.codice,ncollab,copString);
+    for(int i: aC)
+      copString.append("\t").append(i);
+    return String.format("%d\t%d%s", this.codice,aC.size(),copString);
   }
 
 

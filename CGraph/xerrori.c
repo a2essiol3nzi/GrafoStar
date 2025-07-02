@@ -71,7 +71,7 @@ void xclose(int fd, int linea, char *file) {
 // non è thread-safe (nei linux recenti lo è perché è thread local)
 
 
-// threads: creazione e join
+// threads: creazione join e detach
 int xpthread_create(pthread_t *thread, const pthread_attr_t *attr,
                           void *(*start_routine) (void *), void *arg, int linea, char *file) {
   int e = pthread_create(thread, attr, start_routine, arg);
@@ -93,6 +93,16 @@ int xpthread_join(pthread_t thread, void **retval, int linea, char *file) {
   return e;
 }
 
+int xpthread_detach(pthread_t thread, int linea, char* file)
+{
+  int e = pthread_detach(thread);
+  if(e!=0) {
+    xperror(e, "Errore pthread_detach");
+    fprintf(stderr,"== %d == Linea: %d, File: %s\n",getpid(),linea,file);
+    pthread_exit(NULL);
+  }
+  return e;
+}
 
 // ----- mutex 
 int xpthread_mutex_init(pthread_mutex_t *restrict mutex, const pthread_mutexattr_t *restrict attr, int linea, char *file) {

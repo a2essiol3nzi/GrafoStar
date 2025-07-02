@@ -1,8 +1,6 @@
 #include "xerrori.h"  // sono file con funzioni di gestione errori-> funzioni usate durante il corso
 #include "utils.h"    // sono funzioni generiche implementate per il progetto-> divise dal main e da xerrori.* per chiarezza e semplicità
 
-// per messaggi di debug
-#define QUI __LINE__,__FILE__
 
 
 int main(int argc, char** argv)
@@ -19,6 +17,38 @@ int main(int argc, char** argv)
 
 
 
+  // (===== AVVIO THREAD GESTORE SEGNALI =====)
+  fprintf(stderr,"(===== AVVIO THREAD GESTORE SEGNALI =====)\n");
+  /*
+    1. definiamo una funzione di handling (handler_body) che verrà eseguita dal thread gestore dei segnali
+    2. definiamo nel main (e la passeremo tra gli argomenti del thread) una variabile atomica per la rappresentazione dello stato
+    (pre-pipe e post-pipe), e una var rappresentante la ricezione del segnale SIGINT che verrà ascoltata dal main 
+    durante la lettura dalla pipe.
+
+    NOTA: in caso di temrinazione "naturale" del programma, dobbiamo notificare il thread gestore di terminare per essere joinato
+    perciò in  quel caso il mian invierà un SIGINT al thread gestore dopo aver settato termina gia ad 1
+  */
+  // variabile atomica di stato, necessita di essere atomica (essere acceduta con un metodo) perche prima o poi verra modificata
+  // dobbiamo quindi evitare race-cond di lettura su scrittura
+  volatile sig_atomic_t pipe_state = 0;
+  volatile sig_atomic_t term = 0;
+  // inizializzazione grafo e passagio riferimenti al thread gestore per la deallocazione finale
+  attore* grafo = NULL;
+  int grl = 0;
+  // blocco SIGINT cosi da poterlo gestire come specificato nel testo
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask,SIGINT);
+  // maschero questi segnali
+  pthread_sigmask(SIG_BLOCK,&mask,NULL);
+  // creo il thread e lo avvio (dovrà essere joinato dal main al momento della deallocazione/terminazione)
+  pthread_t thand;
+  datisighand dth = { .pipe = &pipe_state, .term = &term };
+  xpthread_create(&thand,NULL,handler_body,&dth,QUI);
+
+  
+
+
   // ===== LETTURA NOMI.TXT - CREAZIONE ARRAY DI ATTORI =====
   fprintf(stderr,"===== LETTURA NOMI.TXT - CREAZIONE ARRAY DI ATTORI =====\n");
   /* 
@@ -32,38 +62,56 @@ int main(int argc, char** argv)
   FILE* fn = xfopen(argv[1],"r",QUI);
   // inizializzazione dell'array di attori per la rappresentazione del grafo, e del suo indice di lunghezza. Uso la funzione init_gr() definita appositamente
   // file utils.*
-  int grl = 0;
-  attore* grafo = init_gr(fn,&grl);
+  grafo = init_gr(fn,&grl);
+  assert(grafo!=NULL);
   //chiudo file finito di leggere
   if(fclose(fn)==EOF) xtermina("Errore chiusura filenomi",QUI);
 
-  // --- ordinamento di grafo in base ai codici degli attori ---
-  fprintf(stderr,"--- Ordinamento grafo ---\n");
-  // funzione di ordinamento che usa funz di cmp basata sul codice degli attori (util.*)
-  qsort(grafo, grl, sizeof(attore), (__compar_fn_t) &cmp_att);
-
-
+  // test di gestione
+  kill(getpid(),SIGINT);
 
   // ===== LETTURA GRAFI.TXT - COMPLETAZIONE DEI CAMPI ATTORI =====
   fprintf(stderr,"===== LETTURA GRAFI.TXT - COMPLETAZIONE DEI CAMPI ATTORI =====\n");
-  /*
-  1. si creano numcons thread che leggono dal buffer, estraggono i vari puntatori a stringhe/linee del filegrafo che viene letto dal main thread
-  2. tramite tokenize() (vedere util.*) tokenizzano le righe e ricavano i campi mancanti per gli attori
-  3. assegnano i valori trovati ai campi degli attori in grafo per definire completamente IL GRAFO DELLE STAR
-  
-  Ogni thread deve leggere dal buffer CONDIVISO (serve sincro), ricavare i dati da assegnare ad un certo attore AL QUALE NESSUN ALTRO THREAD 
-  ACCEDERÀ -> i thread potranno accedere contemporaneamente all'array grafo, perche :
-  Non c'è concorrenza di scrittura: ogni oggetto è scritto solo da un thread.
-  Non c'è concorrenza lettura/scrittura: codice viene solo letto, e mai modificato.
-  -> non vi è race condition sui dati in grafo
+  /* 
+    1. si creano numcons thread che leggono dal buffer, estraggono i vari puntatori a stringhe/linee del filegrafo che viene letto dal main thread
+    2. viene fatto il parsing delle righe leggendo inizialmente i primi due valori (sempre presenti), e poi tokenizzando i restanti n (specificati nel 2o campo)
+    3. assegno i valori trovati ai campi degli attori in grafo per definire completamente IL GRAFO DELLE STAR
+
+    Ogni thread deve leggere dal buffer CONDIVISO (serve sincro), ricavare i dati da assegnare ad un certo attore AL QUALE NESSUN ALTRO THREAD 
+    ACCEDERÀ -> i thread potranno accedere contemporaneamente all'array grafo, perche :
+    Non c'è concorrenza di scrittura: ogni oggetto è scritto solo da un thread.
+    Non c'è concorrenza lettura/scrittura: codice viene solo letto, e mai modificato.
+    -> non vi è race condition sui dati in grafo
   */
-  // Per la sincronizzazione dei thread sul buffer (circolare) condiviso ho deciso di usare 
-  // inizializzo buffer condiviso (circolare), dim buffer (data anche la grandezza del file da leggere) 64
-  char* buffer[64];
-  // indici di inserimento ed estrazione (inizialmente entrambi a 0)
-  int in = 0, out = 0;
+  // apro il 2o file
+  FILE* fg = xfopen(argv[2],"r",QUI);
+  // avvio il paradigma prod-cons
+  complete_gr(atoi(argv[3]),grafo,grl,fg);
+  // dopodiché posso richiudere il file aperto
+  if(fclose(fg)==EOF) xtermina("Errore chiusura filegrafo\n",QUI);
 
 
 
+  // ===== CREAZIONE CAMMINI.PIPE - LETTURA INT32 BIT =====
+  fprintf(stderr,"===== CREAZIONE CAMMINI.PIPE - LETTURA INT32 BIT =====\n");
+  /*
+    1. si deve creare la pipe e cambiare il valore di pipe_state (così che il thread gestore segnali modifichi l'approccio)
+    2. si avvia un ciclo di lettura dalla pipe nel quale si controlla anche la variabile term per vedere se il thread gestore ha registrato
+    l'arrivo di un SIGINT-> in tal caso si deve interrompere la scrittura e terminare come decritto nel testo (e joinando il thread gestore)
+  */
+  // creazione ...
+  // aggiorno lo stato della pipe
+  pipe_state = 1;
+  // lettura con controllo di terminazione...
+  
+  
+
+
+  fprintf(stderr,"## Terminazione programma naturale, attendere prego... ##\n");
+  // in caso di terminazione naturale dobbiamo dire al thread gestore di terminare anche lui, gli inviamo un SIGINT 
+  // per avvisarlo di terminare dato che il programma è giunto alla fine
+  pthread_kill(thand,SIGINT);
+  destruction(grafo,grl,&thand);
   return 0;
+
 }
