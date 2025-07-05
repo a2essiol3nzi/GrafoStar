@@ -24,7 +24,7 @@ public class CreaGrafo {
     System.err.println("===== LETTURA NAME.BASICS.TSV - SCRITTURA NOMI.TXT =====");
     // creo la mappa dagli attori ai codici
     Map<Integer,Attore> attori = new HashMap<Integer,Attore>();
-    // Array dei codici  ordinati degli attori
+    // Array dei codici ordinati degli attori
     ArrayList<Integer> codici = new ArrayList<Integer>();
 
     try{
@@ -49,20 +49,14 @@ public class CreaGrafo {
         String[] campi = line.split("\t");
 
         // verifico le condizioni e agisco di conseguenza
-        if(!campi[2].equals("\\N")){
-          String[] professions = campi[4].split(",");
-          for(String p: professions){
-            if(p.equals("actor") || p.equals("actress")){ 
-              // entrambe le cond verificate-> creiamo un nuovo Attore
-              int c = Integer.parseInt(campi[0].substring(2));
-              Attore a = new Attore(c, campi[1], Integer.parseInt(campi[2]));
-              // aggiorno la lista dei codici
-              codici.add(c);
-              // aggiorno attori
-              attori.put(c, a);
-              break;
-            }
-          }
+        if((!campi[2].equals("\\N")) && ((campi[4].contains("actor")) || campi[4].contains("actress"))){
+          // entrambe le cond verificate-> creiamo un nuovo Attore
+          int c = Integer.parseInt(campi[0].substring(2));
+          Attore a = new Attore(c, campi[1], Integer.parseInt(campi[2]));
+          // aggiorno la lista dei codici
+          codici.add(c);
+          // aggiorno attori
+          attori.put(c, a);
         }
         // se una delle cond non è verificata non faccio niente e passo alla prossima linea
       }
@@ -78,8 +72,10 @@ public class CreaGrafo {
       codici.sort((a,b)-> a-b);
 
       // stampo ogni attore associato alle chiavi
-      for(int k: codici)
-        bw.write(attori.get(k).toString() + "\n");
+      for(int k: codici){
+        bw.write(attori.get(k).toString());
+        bw.newLine();
+      }
       // al termine richiudo il file nomi.txt
       bw.close();
       
@@ -154,7 +150,8 @@ public class CreaGrafo {
         // tramite la HashMap accediamo all'attore
         Attore a = attori.get(c);
         // stampiamo l'attore sottoforma di nodo nel formato richiesto
-        bw.write(a.toNode() + "\n");
+        bw.write(a.toNode());
+        bw.newLine();
       }
       // chiusura file grafo.txt
       bw.close();
