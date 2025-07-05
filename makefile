@@ -34,9 +34,4 @@ cleanC:
 cleanJ:
 	rm *.class
 
-cleanF:
-	rm *.txt
-
-cleanAll: 
-	make cleanC
-	make cleanJ
+cleanAll: cleanC cleanJ

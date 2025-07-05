@@ -42,7 +42,7 @@ typedef struct {
 // struttura dati da passare ai thread che calcolano i cammini minimi tra attori
 typedef struct {
   int a;
-  int b;    // interi da 32 bit che vengono inseriti con la riead dalla pipe 
+  int b;    // interi letti dalla pipe
   attore* gr;
   int grl;
 } datiminpath;

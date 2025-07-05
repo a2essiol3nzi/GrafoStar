@@ -141,10 +141,13 @@ void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pt
     // di trovarlo (per come vengono passati gli interi dalla pipe)
     // si usa malloc perhce altrimenti al di fuori del blocco la struct viene deallocata!
     datiminpath* dth = malloc(sizeof(datiminpath));
-    int a,b;
-    int n = read(fd,&a,4);
-    if(n==0) // scrittore ha chiuso la sua estremita
+    int32_t a,b;
+    int n = read(fd,&a,sizeof(int32_t));
+    if(n==0){ // scrittore ha chiuso la sua estremita
+      // dealloco ed esco
+      free(dth);
       break;
+    }
     if(n<4) // errore di passaggio valori o errore di lettura
       xtermina("Errore lettura da pipe",QUI);
     n = read(fd,&b,4);
@@ -288,7 +291,7 @@ void* handler_body(void* args)
       *dati->term = 1;
       break;
     } else {
-      // se non ce la pipe si attende
+      // se non ce la pipe si avvisa che si sta ancora costruendo il grafo
       write(1,messC,46);
     }
   }
@@ -303,7 +306,6 @@ void* breadth_first_search(void* args)
   // inizio la misurazione del tempo (tick del ciclo di clock) per misurare la durata della funzione
   clock_t start = times(NULL);
   // verifico che la sorgente sia valida
-  fprintf(stderr,"@@ %d controllo\n",dati->a);
   attore* s = bsearch(&dati->a,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
   if(s==NULL){
     // dobbiamo stoppare il timer, scrivere nel file e su stdout il risultato (negativo) della computazione e poi terminare
@@ -322,11 +324,12 @@ void* breadth_first_search(void* args)
   ABRnode* visitati = crea_abr(dati->a,NULL);
   FIFOnode* raggiunti = NULL; // indirizzo di lettura/estrazione, serve anche uno di inserimento per efficienza
   FIFOnode* rtail = raggiunti; // inizialmente uguale a "head"
+  FIFOnode* est = NULL;
   // avvio l'algoritmo fino a che la FIFO non è vuota
   push(&raggiunti,&rtail,dati->a,0,visitati);
   while(raggiunti!=NULL){
     // estraggo dalla testa
-    FIFOnode* est = pop(&raggiunti);
+    est = pop(&raggiunti);
     assert(est!=NULL);
     // un nodo associato ad att_est sarà gia presente in ABR (visitati)
     // a questo punto INTANTO SI VERIFICA SE (il nodo appena analizzato) È LA NOSTRA DESTINAZIONE (dati->b) in tal caso abbiamo finito, 
@@ -337,14 +340,15 @@ void* breadth_first_search(void* args)
       double eltime = elapsed_time(start,end);
       // stampa con esito successo e dealloco tutto 
       stampa_minpath(dati->a,dati->b,dati->gr,dati->grl,eltime,est->abr,est->depth,1);
-      destroy_abr(visitati); destroy_fifo(raggiunti);
+      destroy_abr(visitati); 
+      destroy_fifo(raggiunti);
+      free(est);
+      free(dati);
       // termino
-        free(dati);
-        return NULL;
+      return NULL;
     } else {
       // (ALTRIMENTI) dobbiamo aggiungere alla FIFO tutti i suoi adiacenti nel grafo (tranne quelli gia presenti in visitati)
       // -> gia inseriti per adiacenza con un altro nodo (a gestire l'inserimento corretto ci penserà la funzione insert_abr)
-      //fprintf(stderr,">>> estraggo %d\n",est->codice);
       attore* est_att = bsearch(&est->codice,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
       int* adj = est_att->cop;
       for(int i=0;i<est_att->numcop;i++){
@@ -354,7 +358,6 @@ void* breadth_first_search(void* args)
         if(insert_abr(&visitati,adj_node))  // se è stato aggiunto è nuovo -> devo aggiungerlo anche in FIFO
           push(&raggiunti,&rtail,adj[i],adj_depth,adj_node);
       }
-      // a questo punto dealloco il nodo della linked list che ho finito di usare
       free(est);
     }
   }
@@ -363,7 +366,7 @@ void* breadth_first_search(void* args)
   // se siamo qui abbiamo eseguito l'intera BFS, MA non abbiamo trovato un percorso da a a b (altrimenti ci saremmo fermati)
   // dobbiamo terminare stampando un esito negativo 
   // dealloco ABR (FIFO gia deallocata una alla volta), stampo messaggi di esito negativo
-  int eltime = elapsed_time(start,end);
+  double eltime = elapsed_time(start,end);
   stampa_minpath(dati->a,dati->b,NULL,0,eltime,NULL,0,0);
   destroy_abr(visitati);
   free(dati);
@@ -446,8 +449,9 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
   // devo stampare sul file dedicato e su stdout
   FILE* f = xfopen(buff,"w",QUI);
   if(ctrl==1){  // esito positivo
+    printf("%s: Lunghezza minima %d. Tempo di elaborazione %3f\n",buff,lpath,eltime);
     // per la stampa implemento un array di codici attore: li inserisco dalla fine e poi li rileggo dall'inizio 
-    int* cammino = malloc(lpath * sizeof(int));
+    int* cammino = malloc((lpath+1) * sizeof(int));
     for(int i=lpath;i>=0;i--){
       cammino[i] = dest->codice;
       dest = dest->pred;
@@ -457,8 +461,8 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
       attore* a = bsearch(&cammino[i],gr,grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
       fprintf(f,"%d\t%s\t%d\n",a->codice,a->nome,a->anno);
     }
+    // dealloco cammino
     free(cammino);
-    printf("%s: Lunghezza minima %d. Tempo di elaborazione %3f\n",buff,lpath,eltime);
   } else {
     printf("%s: Nessun cammino! Tempo di elaborazione %3f\n",buff,eltime);
     if(ctrl==0) { // nessun cammino ma sorgente valida
