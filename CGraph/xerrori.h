@@ -17,6 +17,8 @@
 #include <pthread.h>
 #include <stdatomic.h>
 #include <unistd.h>
+#include <sys/times.h>
+
 
 
 // termina programma

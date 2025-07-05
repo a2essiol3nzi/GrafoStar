@@ -46,7 +46,9 @@ int main(int argc, char** argv)
   datisighand dth = { .pipe = &pipe_state, .term = &term };
   xpthread_create(&thand,NULL,handler_body,&dth,QUI);
 
-  
+  // test gestione
+  // kill(getpid(),SIGINT);
+
 
 
   // ===== LETTURA NOMI.TXT - CREAZIONE ARRAY DI ATTORI =====
@@ -68,7 +70,9 @@ int main(int argc, char** argv)
   if(fclose(fn)==EOF) xtermina("Errore chiusura filenomi",QUI);
 
   // test di gestione
-  kill(getpid(),SIGINT);
+  // kill(getpid(),SIGINT);
+
+
 
   // ===== LETTURA GRAFI.TXT - COMPLETAZIONE DEI CAMPI ATTORI =====
   fprintf(stderr,"===== LETTURA GRAFI.TXT - COMPLETAZIONE DEI CAMPI ATTORI =====\n");
@@ -90,23 +94,41 @@ int main(int argc, char** argv)
   // dopodiché posso richiudere il file aperto
   if(fclose(fg)==EOF) xtermina("Errore chiusura filegrafo\n",QUI);
 
+  // controllo 
+  // stampa_gr(grafo,grl);
+
 
 
   // ===== CREAZIONE CAMMINI.PIPE - LETTURA INT32 BIT =====
-  fprintf(stderr,"===== CREAZIONE CAMMINI.PIPE - LETTURA INT32 BIT =====\n");
+  fprintf(stderr,"===== CREAZIONE CAMMINI.PIPE - LETTURA COPPIE INT32 =====\n");
   /*
     1. si deve creare la pipe e cambiare il valore di pipe_state (così che il thread gestore segnali modifichi l'approccio)
-    2. si avvia un ciclo di lettura dalla pipe nel quale si controlla anche la variabile term per vedere se il thread gestore ha registrato
-    l'arrivo di un SIGINT-> in tal caso si deve interrompere la scrittura e terminare come decritto nel testo (e joinando il thread gestore)
+    2. tramite funzione dedicata (utils.*) si avvia un ciclo di lettura dalla pipe nel quale si controlla anche la variabile term per vedere se il thread gestore ha registrato
+    l'arrivo di un SIGINT-> in tal caso si deve interrompere la lettura, chiudere la pipe e terminare come decritto nel testo (e joinando il thread gestore)
   */
-  // creazione ...
-  // aggiorno lo stato della pipe
+  // creazione pipe specificando nome e permessi in ottale. permessi pipe: (p) rw- rw- rw-
+  int e = mkfifo("./cammini.pipe",0666);
+  if(e==0) // se non ci sono errori oppure gia esisteva la pipe 
+    fprintf(stderr,"--- Pipe creata con successo ---\n");  
+  else if(errno==EEXIST) 
+    xtermina("Pipe gia esistente",QUI);
+  else 
+    xtermina("Errore creazione pipe",QUI);
+  // apriamo la pipe il lettura
+  int fd = open("./cammini.pipe",O_RDONLY);
+  if(fd<0) xtermina("Errore apertura pipe (lettura)",QUI);
+  // aggiorno lo stato della pipe, da ora in poi il programma può terminare
   pipe_state = 1;
-  // lettura con controllo di terminazione...
-  
-  
+  // inizio il ciclo di lettura di coppie di int32 (utils.*), è importante che la funzione abbia anche gli argomenti necessari per 
+  // chiamare la funzione di terminazione destruction (utils.*)
+  minpath_finder(fd,&term,grafo,grl,&thand);
+  fprintf(stderr,"--- Chiusura lettura dalla pipe ---\n");
+  xclose(fd,QUI);
+  unlink("./cammini.pipe");
 
 
+
+  // arrivati a questo punto vuol dire che i valori da leggere sono terminati, e la pipe è stata chiusa e distrutta (non piu presente in FS)
   fprintf(stderr,"## Terminazione programma naturale, attendere prego... ##\n");
   // in caso di terminazione naturale dobbiamo dire al thread gestore di terminare anche lui, gli inviamo un SIGINT 
   // per avvisarlo di terminare dato che il programma è giunto alla fine

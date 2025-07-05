@@ -5,7 +5,7 @@ Script per testare il programma cammini.out
 Richiede sulla linea di comando k>1 interi 
     i1 i2 i3 .. ik
 e invia sulla pipe cammini.pipe (o altra specificata con -p) le coppie 
-    (i1,i2), (i1,i3), (i1,i4), ... (ik-1,ik)  
+    (i1,i2), (i2,i3), (i3,i4), ... (ik-1,ik)  
 in modo da richiedere a cammini.out di calcolare il camminimo minimo 
 fra ogni coppia. Inviate le coppie attende per un numero di secondi
 specificato con -s (default 0) e poi chiude la pipe.

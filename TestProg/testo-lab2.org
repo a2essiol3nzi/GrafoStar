@@ -113,7 +113,7 @@ Il grafo deve essere costruito mediante il seguente procedimento:
 
 
 3. Terminata la lettura del grafo, il programma deve creare nella directory corrente una pipe cammini.pipe e aprirla in lettura. Successivamente il programma deve leggere dalla pipe due interi a 32 bit a e b e per ogni coppia di interi letta deve creare un nuovo thread che effettui il calcolo del cammino minimo tra a e b (si veda la sezione relativa per i dettagli).
-        (sotto)
+        Test da fare con cammini.py
 
 4. Non appena la lettura della pipe non restituisce nulla (quindi l'altra estremità della pipe è stata chiusa in scrittura), il programma deve attendere 20 secondi (l'idea è di dare il tempo ad eventuali thread che calcolano i cammini minimi di completare il calcolo) e terminare deallocando tutte le strutture utilizzate dal programma.
 
@@ -132,10 +132,11 @@ Il grafo deve essere costruito mediante il seguente procedimento:
     l'eseguibile cammini.out deve essere generato senza errori semplicemente dando il comando make dalla linea di comando (ricordate che make deve compilare contemporaneamente anche il programma java).
     dopo la fase di debugging compilate con l'opzione -O3 per velocizzare l'esecuzione e mettete questa opzione anche nel makefile in modo che venga utilizzata durante la correzione.
 
-** Thread per il calcolo del cammino minimo
+** PROJ Thread per il calcolo del cammino minimo
 
 - Questi thread ricevono come input il grafo (in pratica l'array attori) e il codice di due attori a e b e devono effettuare la ricerca di un cammino minimo da a a b all'interno del grafo utilizzando l'algoritmo BFS (in pratica è l'algoritmo di Dijkstra ottimizzato per il caso in cui gli archi hanno costo unitario).
         L'algoritmo utilizza una coda FIFO che potete implementare come ritenete opportuno (ma deve essere in grado di gestire un numero arbitrariamente grande di elementi, quindi un array di dimensione fissata non è accettabile). L'algoritmo deve anche tenere traccia dei nodi che sono già stati inseriti nella coda (variabile explored nello pseudocodice), a tale scopo è obbligatorio utilizzare un ABR (albero binario di ricerca). Questi thread devono essere resi detached (cioè non richiedere che venga fatta la join) con una opportuna chiamata alla funzione pthread_detach(3)
+               per l'impl serve una fifo per i nodi da esplorare (aggiunti mano a mano che si esplorano i nodi-> un idea è di usare una linked list per gli einserimenti e estrazioni efficienti, senza usare un altro array dinamico), struttura per gli attori esplorati i cui nodi dovranno contenere anche predecessore nel cammino (per ricorstruirlo) e distanza dalla sorgente -> ABR
 
 1. Ogni thread deve scrivere il proprio output sul file di nome a.b dove a e b sono i codici ricevuti in input. Ad esempio se il thread deve calcolare il cammino minimo tra i nodi 1000 e 2000, l'output deve essere scritto sul file 1000.2000 e deve consistere di uno dei seguenti messaggi:
     codice 1000 non valido; se ad esempio il codice 1000 non corrisponde ad un attore nel grafo

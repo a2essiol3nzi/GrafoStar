@@ -4,7 +4,7 @@
 
 
 // ----- struct definite per il programma
-// struttura dei nodi del grafo
+// struttura dati dei nodi del grafo
 typedef struct {
   int codice;         // codice attore
   char *nome;         // nome attore
@@ -39,6 +39,33 @@ typedef struct {
   volatile sig_atomic_t* term;  // variabile di terminazione (post-pipe)
 } datisighand;
 
+// struttura dati da passare ai thread che calcolano i cammini minimi tra attori
+typedef struct {
+  int a;
+  int b;    // interi da 32 bit che vengono inseriti con la riead dalla pipe 
+  attore* gr;
+  int grl;
+} datiminpath;
+
+// struttura dati per i nodi dell'ABR
+typedef struct ABRnode {
+  int codice;       // codice dell'attore a cui si riferisce
+  struct ABRnode* pred;    // predecessore nel cammino dalla sorgente-> per ricostruire il cammino 
+  struct ABRnode* sx;
+  struct ABRnode* dx;      // figli destro e sinistro 
+} ABRnode;
+
+// struttura dati per l'implementazione della Linked-List fifo usata nella BFS
+typedef struct FIFOnode {
+  int codice;       // codice dell'attore (nodo del grafo) 
+  int depth;        // distanza dalla sorgente (lunghezza path) 
+  ABRnode* abr;     // puntatore al rispettivo nodo in ABR (per la creazione del ped)
+  struct FIFOnode* next;   // puntatore all'elemento successivo della LL
+} FIFOnode;
+
+
+
+
 
 
 
@@ -52,6 +79,9 @@ attore* init_gr(FILE* fn, int* len);
 // prod scandisce filegrafo
 // cons elaborano le linee e completano il GRAFO DELLE STAR 
 void complete_gr(int numcons, attore* grafo, int grl, FILE* fg);
+
+// funnzione per gestione della fase di lettura dalla pipe + avvio dei thread per il calcolo dei cammini minimi
+void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pthread_t* thand);
 
 
 
@@ -69,6 +99,10 @@ void prod_body(void* args);
 // pronto a gestire il segnale SIGINT (^C)
 void* handler_body(void* args);
 
+// funzione che implementa la BFS per il calolo dei cammini minimi fra attori (se esistono)
+void* breadth_first_search(void* args);
+
+
 
 
 
@@ -76,15 +110,59 @@ void* handler_body(void* args);
 // funzione per la deallocazione del grafo delle star
 void destruction(attore* gr, int grl, pthread_t* thand);
 
+// funzione che dealloca un ABR facendo la free di ogni nodo (i nodi della FIFO verranno deallocati mano a mano che si estraggono)
+void destroy_abr(ABRnode* root);
+
+// funzione per deallocazione FIFO
+void destroy_fifo(FIFOnode* head);
 
 
 
 
-// ----- funzioni di confornto 
+
+// ----- funzioni "minori"
 // funzione per il confronto tra due interi
-int cmp_int(const void *a, const void *b); 
+int cmp_intatt(const int *x, const attore *y);
+
+// funzioni (fornite dal professore) per inserimento/ricerca efficiente all'interno degli ABR degli attori visitati
+int shuffle(int n);
+int unshuffle(int n);
+
+// funzione che dati due valori clock_t calcola i secondi passati tra questi due valori
+double elapsed_time(clock_t a, clock_t b);
+
+// funzione che stampa i cammini minimi calcolati dai thread (se esistono)
+// ctrl è un valore di controllo che passo io alla funzione che rappresenza l'esito dell'algor
+void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* dest, int lpath, int ctrl);
+
+
+
+
+
+
+//----- funzioni ABR (la funzione di ricerca non viene usata)
+// funzione che crea un nodo ABR
+ABRnode* crea_abr(int c, ABRnode* pred);
+
+// funzione di inserimento nodo in ABR
+// *root NON VA BENE perche non modificherei davvero i valori di root->sx e root->dx
+int insert_abr(ABRnode **root, ABRnode *node);
+
+
+
+
+
+// ----- funzioni Linked-List
+// funzione di inserimento di un codice di attore in coda bfs
+void push(FIFOnode** head, FIFOnode** tail, int codice, int lpath, ABRnode* twin);
+
+// funzione di estrazione di un codice di attore in coda bfs
+FIFOnode* pop(FIFOnode** head);
+
 
 
 
 
 // ----- funzioni di debug
+// stampa tutto il grafo creato su stdin
+void stampa_gr(attore* gr, int grl);

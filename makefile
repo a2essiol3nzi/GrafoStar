@@ -5,7 +5,9 @@ CFLAGS= -std=c11 -Wall -O3 -g -pthread
 LDLIBS= -lm -pthread
 
 # regole di compilazione
-EXEC= cammini.out CreaGrafo.class
+EXECS= cammini.out CreaGrafo.class
+
+all: $(EXECS)
 
 # Compilazione programma C
 cammini.out: CGraph/cammini.o CGraph/utils.o CGraph/xerrori.o
@@ -22,7 +24,7 @@ CGraph/xerrori.o: CGraph/xerrori.c CGraph/xerrori.h
 
 # Compilazione programma Java
 CreaGrafo.class: JGraph/CreaGrafo.java JGraph/Attore.java
-	
+	$(JC) -d ./ $^
 
 
 # Pulizia
@@ -30,6 +32,10 @@ cleanC:
 	rm CGraph/*.o *.out
 
 cleanJ:
+	rm *.class
+
+cleanF:
+	rm *.txt
 
 cleanAll: 
 	make cleanC
