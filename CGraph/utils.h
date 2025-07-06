@@ -9,7 +9,7 @@ typedef struct {
   int codice;         // codice attore
   char *nome;         // nome attore
   int anno;           // anno di nascita
-  int numcop;         // numero coprotagonisti == nodi adj
+  int numcop;         // numero coprotagonisti == numero nodi adj
   int *cop;           // array coprotagonisti == array dei nodi adiacenti
 } attore;
 
@@ -71,9 +71,9 @@ typedef struct FIFOnode {
 
 
 // ----- funzioni d'uso generico
-// funzione che inizializza il grafo, inizializza i 3 campi ricavabili dal 1o file:
+// funzione che inizializza il grafo, inizializza i 3 campi ricavabili dal 1o file (1a parte):
 // si legge riga per riga (nel formato a noi noto) e da ognuna ricaviamo i dati utili.
-attore* init_gr(FILE* fn, int* len);
+attore* init_gr(FILE* fn, int* len) ;
 
 // funzione per il completamento del grafo tramite filegrafo(2a parte):
 // prod scandisce filegrafo
@@ -93,13 +93,16 @@ void* cons_body(void* args);
 
 // funzione del thread produttore (main) per la lettura dal file + inserimento nel buffer -> non verrà passata ad una pthread_create
 // si sceglie di definirla ""pthread_create-function like"" per mantenere una regolarità
-void prod_body(void* args);
+void* prod_body(void* args);
 
 // funzione del thread gestore dei segnali, stampa il PID del processo a cui appartiene e poi si mette in attesa
 // pronto a gestire il segnale SIGINT (^C)
 void* handler_body(void* args);
 
 // funzione che implementa la BFS per il calolo dei cammini minimi fra attori (se esistono)
+// probabilmente sarebbe stato piu consono implementare l'algo (da "INIZIO ALGORITMO" in poi) in una funzione separata,
+// ma trattandosi comunque di una versione dedicata alla singola ricerca dei cammini in cui non sempre si esegue l'intera visita
+// ho preferito fare tutto qui, dedicando però una funzione a parte per la stampa e ricostruzione del cammino
 void* breadth_first_search(void* args);
 
 
@@ -145,7 +148,7 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
 ABRnode* crea_abr(int c, ABRnode* pred);
 
 // funzione di inserimento nodo in ABR
-// *root NON VA BENE perche non modificherei davvero i valori di root->sx e root->dx
+// *root NON VA BENE perche non modificherei davvero i valori di root->sx e root->dx (modifiche solo locali)
 int insert_abr(ABRnode **root, ABRnode *node);
 
 

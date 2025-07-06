@@ -9,7 +9,7 @@ attore* init_gr(FILE* fn, int* len)
   assert(fn!=NULL);
   assert(*len==0);
   // allocazione spazio grafo
-  // dim iniziale settata a 1024 attori (per un grande numero di attori ~400.000 usa ~20 realloc)
+  // dim iniziale settata a 1024 attori
   int capacita = 1024;
   attore* gr = malloc(capacita*sizeof(attore));
   // var per lettura file
@@ -57,6 +57,7 @@ void complete_gr(int numcons, attore* grafo, int grl, FILE* fg)
   mutex verra usata solo dai thread consumatori per l'accesso all'indice di estrazione (tramite il quale accedere al buffer).
   il thread produttore non avrà bisogno di una mutex dedicata in quanto è l'unico di quella tipologia -> unico che accedere all'indice di inserimento.
   -> in conclusione si aumenta l'efficienza sfruttando la natura del paradigma, gestendo separatamente prod e cons.
+  (l'uso dei semafori ci assicura che gli indici p e c non si sovrapporranno mai creando una race condition)
   */
 
   // inizializzo buffer condiviso (circolare), dim buffer (data anche la grandezza del file da leggere) 64 = Buff_size (in utils.h)
@@ -76,7 +77,7 @@ void complete_gr(int numcons, attore* grafo, int grl, FILE* fg)
   // consumatori
   pthread_t tc[numcons];
   daticons dc[numcons];
-  // fprintf(stderr,"--- Avvio consumatori ---\n");
+  fprintf(stderr,"--- Avvio consumatori ---\n");
   for(int i=0;i<numcons;i++){
     dc[i] = (daticons){
       .buff = buffer,
@@ -98,11 +99,11 @@ void complete_gr(int numcons, attore* grafo, int grl, FILE* fg)
     .s_full = &s_full,
     .file = fg
   };
-  // fprintf(stderr,"--- Avvio produttore ---\n");
+  fprintf(stderr,"--- Avvio produttore ---\n");
   // avviato come funzione semplice senza creare un nuovo thread
   prod_body(&dp);
   // terminata la funzione del produttore si deve segnalare ai consumatori che non ci sono piui dati da leggere ed eseguire la join
-  // fprintf(stderr,"-- Scrittura valori terminazione --\n");
+  fprintf(stderr,"-- Scrittura valori terminazione --\n");
   for(int i=0;i<numcons;i++){
     xsem_wait(&s_empty,QUI);
     buffer[pindex] = NULL;
@@ -123,20 +124,8 @@ void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pt
 {
   // avviamo un ciclo di lettura dalla pipe in cui per ogni coppia di interi a 32 bit che leggiamo, associamo un thread
   // che considera i due valori come codici di due attori a b, e calcola il cammino minimo da a a b.
-  while(1){
-    // verifichiamo se il thread gestore ci avvisa del segnale di SIGINT
-    if(*term){
-      fprintf(stderr,"## Terminazione INnaturale, attendere prego... ##\n");
-      // thread gestore sarà gia terminato, chiudo la pipe
-      xclose(fd,QUI);
-      fprintf(stderr,"--- Chiusura lettura dalla pipe ---\n");
-      // devo distruggere la pipe
-      unlink("./cammini.pipe");
-      // dealloco
-      destruction(gr,grl,thand);
-      // esco con exitcode di fallimento
-      exit(EXIT_FAILURE);
-    }
+  // la condizione del while verifica l'arrivo di un segnale di sigint che (in questa fase del programma) deve terminare l'esecuzione 
+  while(!(*term)){
     // leggiamo dalla pipe due interi, il primo si legge e controlliamo che non sia stata chiusa la pipe, il secondo abbiamo la sicurezza 
     // di trovarlo (per come vengono passati gli interi dalla pipe)
     // si usa malloc perhce altrimenti al di fuori del blocco la struct viene deallocata!
@@ -168,6 +157,19 @@ void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pt
     // quando avviati restituiranno le risorse autonomamente senza il bisongo della join
     xpthread_detach(tminp,QUI);
   }
+  // verifichiamo se il thread gestore ci avvisa del segnale di SIGINT
+  if(*term){
+    fprintf(stderr,"## Terminazione INnaturale, attendere prego... ##\n");
+    // thread gestore sarà gia terminato, chiudo la pipe
+    xclose(fd,QUI);
+    fprintf(stderr,"--- Chiusura lettura dalla pipe ---\n");
+    // devo distruggere la pipe
+    unlink("./cammini.pipe");
+    // dealloco
+    destruction(gr,grl,thand);
+    // esco con exitcode di fallimento
+    exit(EXIT_FAILURE);
+  }
   return ;
 }
 
@@ -183,7 +185,6 @@ void* cons_body(void* args)
   daticons* dati = (daticons* )args;
   // iniziamo la procedura di estrazione e modifica attori fino al valore di terminazione
   while(1){
-    // fprintf(stderr,"[C] estraggo\n");
     xsem_wait(dati->s_full,QUI);
     // funzione in xerrori.* con controlli sul successo
     xpthread_mutex_lock(dati->mux,QUI);
@@ -195,8 +196,8 @@ void* cons_body(void* args)
       xsem_post(dati->s_empty,QUI);
       break;
     }
-    // procedo con estrazione e elaborazione
-    // si necessita di una copia perche senno potrebbe essere sovrascritta durante l'uso da un produttore
+    // procedo con copia e elaborazione
+    // si necessita di una copia perche senno potrebbe essere sovrascritta (e persa) durante l'uso da un produttore (in quanto verra incrementto il sem_empty)
     // si copia e si dealloca la vecchia immediatamente
     char* line = strdup(tmp);
     free(tmp);
@@ -204,15 +205,15 @@ void* cons_body(void* args)
     xsem_post(dati->s_empty,QUI);
 
     // PARSING LINE
-    // adesso (senza mutex dato che si deve solo fare calcolo) si elabora la stringa tramite parsing e aggiorniamo il relativo attore
+    // adesso (senza mutex dato che si deve solo fare "calcolo") si elabora la stringa tramite parsing e aggiorniamo il relativo attore
     // per il parsing non si usa una funzione dedicata ma si definisce una procedura direttamente nella funzione corrente che usa strtok_r(),
-    // (strtok non è MT safe, serve percio la versione rientrante per garantire il funzinamento-> saveptr gestito loalmente invece che globalmente)
+    // (strtok NON è MT safe, serve percio la versione rientrante per garantire il funzinamento-> saveptr gestito localmente invece che globalmente)
     // ricaviamo subito codice attore e numcops dai primi due campi della linea, così da allocare direttamente lo spazio strettamente necessario
     char* saveptr;
     int att_cod = atoi(strtok_r(line,"\t",&saveptr));
     int numcop = atoi(strtok_r(NULL,"\t",&saveptr));
     int* cop = NULL;
-    // verifico che l'attore abbia collaboratori
+    // verifico che l'attore abbia collaboratori, e in caso alloco dello spazio per i coll
     if(numcop>0){
       cop = malloc(numcop * sizeof(int));
       assert(cop!=NULL);
@@ -224,7 +225,7 @@ void* cons_body(void* args)
     // AGGIORNO ATTORE prima però devo cercarlo in grafo (dati->gr) tramite bsearch(3): 
     // bsearch cerca un certo elemento in un array gia ordinato e in caso di match tra elementi viene restituito un puntatore all'elem.
     // come funzione di confronto usiamo una funz che confronta l'int (attcode) con il codice di un attore nel grafo, un'alternativa era 
-    // di definire una funzione che confronta due attori e creare un istanza temopranea con att_code
+    // di definire una funzione che confronta due attori e creare un istanza temopranea con att_code.
     attore* a = bsearch(&att_cod,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
     assert(a!=NULL);
     a->numcop = numcop;
@@ -234,21 +235,20 @@ void* cons_body(void* args)
   pthread_exit(NULL);
 }
 
-// funzione del thread produttore (main) per la lettura dal file + inserimento nel buffer -> non verrà passata ad una pthread_reate
-// si sceglie di definirla ""pthread_create-function like"" per mantenere una regolarità
-void prod_body(void* args)
+// funzione del thread produttore (main) per la lettura dal file + inserimento nel buffer -> non verrà passata ad una pthread_create
+// ho scelto di definirla ""pthread_create-function like"" per mantenere una regolarità
+void* prod_body(void* args)
 {
   assert(args!=NULL);
   datiprod* dati = (datiprod* )args;
   // creo variabili per l'esecuzione della getline()
-  char* line = NULL; // buffer esato e allocato automaticamente dalla getline in caso di necessità
-  size_t n = 0; // intero rappresentante la grandezza in B del buffer allocato (confrotato con la riga letta per decidere se si ha bisogno di piu spazio)
+  char* line = NULL; // buffer usato e gestito automaticamente dalla getline in caso di necessità
+  size_t n = 0; // intero rappresentante la grandezza in Byte del buffer allocato (confrotato con la lunghezza della riga letta per decidere se si ha bisogno di piu spazio)
 
   // avviamo la lettura del file e inserimento nel buffer
   while((getline(&line,&n,dati->file))>0){
-    // fprintf(stderr,"[P] inserisco\n");
-    // dobbiamo duplicare la linea letta e inserire il puntatore nel buffer, 
-    // non possiamo direttamente isnerire in buffer line perhce verra sovrascritto il contenuto e persa la linea letta
+    // dobbiamo duplicare la linea letta e inserire il puntatore nel buffer,
+    // non possiamo direttamente inserirla nel buffer perhce verra sovrascritto il contenuto di line alla prossima getline, e perso il cotenuto
     // inserimento nel buffer e incremento dell'indice circolare
     assert(line!=NULL);
     xsem_wait(dati->s_empty,QUI);
@@ -259,7 +259,7 @@ void prod_body(void* args)
   // liberiamo il buffer di linea
   free(line);
   // possiamo terminare
-
+  return NULL;
 }
 
 // funzione del thread gestore dei segnali, stampa il PID del processo a cui appartiene e poi si mette in attesa
@@ -268,50 +268,57 @@ void* handler_body(void* args)
 {
   assert(args!=NULL);
   char buffer[25];
+  // Costruzione stringhe da stampare con write
   // snprintf è la versione piu "sicura" di sprintf, tiene di conto della lunghezza del buffer evitando overflow in caso 
   // la costruzione della stringa vada oltre i limiti (non accede a zone di memoria non adibite)
   int len = snprintf(buffer,25,"Il mio PID: %d\n",getpid());
+  char messC[57] = "Costruzione del GRAFO DELLE STAR in corso, attendere...\n";
   // stampo il pid
-  write(1,buffer,len);
+  int w = write(1,buffer,len);
+  if(w<0) xtermina("Errore write (syscall)",QUI);
   datisighand* dati = (datisighand* )args;
   // set di segnali da gestire
   sigset_t mask;
   sigemptyset(&mask);
   sigaddset(&mask,SIGINT);
   int e, s;
-  // messaggi di stampa
-  char messC[46] = "Costruzione GRAFO DELLE STAR in corso...\n";
+  // avvio il ciclo di ricezione
   while(1){
     // attendo SIGINT
     e = sigwait(&mask,&s);
     if(e!=0) xtermina("Errore sigwait",QUI);
+    // ricevuto SIGINT correttamente
     if(*dati->pipe){
-      // se ce la pipe il thread gestore deve settare la var termina (per far terminare il main se non lo sta gia facendo di suo)
+      // se ce la pipe il thread gestore deve settare la var termina (per far terminare il main se non lo sta gia facendo "naturalmente")
       // e poi terminare a sua volta per essere joinato
       *dati->term = 1;
       break;
     } else {
       // se non ce la pipe si avvisa che si sta ancora costruendo il grafo
-      write(1,messC,46);
+      w = write(1,messC,sizeof(messC));
+      if(w<0) xtermina("Errore write (syscall)",QUI);
     }
   }
   return NULL;
 }
 
 // funzione che implementa la BFS per il calolo dei cammini minimi fra attori (se esistono)
+// probabilmente sarebbe stato piu consono implementare l'algo (da "INIZIO ALGORITMO" in poi) in una funzione separata,
+// ma trattandosi comunque di una versione dedicata alla singola ricerca dei cammini in cui non sempre si esegue l'intera visita
+// ho preferito fare tutto qui, dedicando però una funzione a parte per la stampa e ricostruzione del cammino
 void* breadth_first_search(void* args)
 {
   datiminpath* dati = (datiminpath* )args;
-  // preparazione all'esecuzione dell'algoritmo
-  // inizio la misurazione del tempo (tick del ciclo di clock) per misurare la durata della funzione
+  // Preparazione all'esecuzione dell'algoritmo
+  // inizio la misurazione del tempo (#tick del ciclo di clock) per misurare la durata della funzione
   clock_t start = times(NULL);
   // verifico che la sorgente sia valida
   attore* s = bsearch(&dati->a,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
   if(s==NULL){
-    // dobbiamo stoppare il timer, scrivere nel file e su stdout il risultato (negativo) della computazione e poi terminare
+    // dobbiamo rileggere times per vedere quanti cicli sono passati, scrivere nel file e su stdout il risultato (negativo) della computazione e poi terminare
     clock_t end = times(NULL);
     double eltime = elapsed_time(start,end);
-    // funzione che esegue le vaire stampe in base all'esito, rappresentato dall'ultimo arg (ctrl)
+    // funzione che esegue le varie stampe in base all'esito, rappresentato dall'ultimo arg (ctrl)
     stampa_minpath(dati->a,dati->b,NULL,0,eltime,NULL,0,-1); 
     // nessun ABR o FIFO da deallocare
     // termino
@@ -324,22 +331,23 @@ void* breadth_first_search(void* args)
   ABRnode* visitati = crea_abr(dati->a,NULL);
   FIFOnode* raggiunti = NULL; // indirizzo di lettura/estrazione, serve anche uno di inserimento per efficienza
   FIFOnode* rtail = raggiunti; // inizialmente uguale a "head"
-  FIFOnode* est = NULL;
-  // avvio l'algoritmo fino a che la FIFO non è vuota
+  FIFOnode* est = NULL; // per l'estrazione da raggiunti
+  // avvio l'algoritmo  e continuero fino a che la FIFO non è vuota
   push(&raggiunti,&rtail,dati->a,0,visitati);
   while(raggiunti!=NULL){
     // estraggo dalla testa
     est = pop(&raggiunti);
     assert(est!=NULL);
-    // un nodo associato ad att_est sarà gia presente in ABR (visitati)
-    // a questo punto INTANTO SI VERIFICA SE (il nodo appena analizzato) È LA NOSTRA DESTINAZIONE (dati->b) in tal caso abbiamo finito, 
+    // un nodo associato ad est sarà gia presente in ABR (visitati)
+    // a questo punto INTANTO SI VERIFICA SE (il nodo appena estratto) È LA NOSTRA DESTINAZIONE (dati->b) in tal caso abbiamo finito,
     // ci interessa solo lui non tutta la BFS
     if(est->codice == dati->b){
-      // stoppo il timer e faccio le dovute stampe
+      // caloclo il tempo e faccio le dovute stampe
       clock_t end = times(NULL);
       double eltime = elapsed_time(start,end);
-      // stampa con esito successo e dealloco tutto 
+      // stampa con esito positivo e dealloco tutto
       stampa_minpath(dati->a,dati->b,dati->gr,dati->grl,eltime,est->abr,est->depth,1);
+      // da deallocare sta volta abbiamo l'ABR, eventuali nodi rimasti in FIFO, il nodo di FIFO appena estratto, e come prima i dati
       destroy_abr(visitati); 
       destroy_fifo(raggiunti);
       free(est);
@@ -349,6 +357,7 @@ void* breadth_first_search(void* args)
     } else {
       // (ALTRIMENTI) dobbiamo aggiungere alla FIFO tutti i suoi adiacenti nel grafo (tranne quelli gia presenti in visitati)
       // -> gia inseriti per adiacenza con un altro nodo (a gestire l'inserimento corretto ci penserà la funzione insert_abr)
+      // ricaviamo l'attore per definire gli adiacenti
       attore* est_att = bsearch(&est->codice,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
       int* adj = est_att->cop;
       for(int i=0;i<est_att->numcop;i++){
@@ -358,6 +367,7 @@ void* breadth_first_search(void* args)
         if(insert_abr(&visitati,adj_node))  // se è stato aggiunto è nuovo -> devo aggiungerlo anche in FIFO
           push(&raggiunti,&rtail,adj[i],adj_depth,adj_node);
       }
+      // a questo punto posso deallocare il nodo usato e non piu necessario
       free(est);
     }
   }
@@ -365,9 +375,9 @@ void* breadth_first_search(void* args)
   clock_t end = times(NULL);
   // se siamo qui abbiamo eseguito l'intera BFS, MA non abbiamo trovato un percorso da a a b (altrimenti ci saremmo fermati)
   // dobbiamo terminare stampando un esito negativo 
-  // dealloco ABR (FIFO gia deallocata una alla volta), stampo messaggi di esito negativo
   double eltime = elapsed_time(start,end);
   stampa_minpath(dati->a,dati->b,NULL,0,eltime,NULL,0,0);
+  // dealloco ABR (FIFO gia deallocata una alla volta) e i dati
   destroy_abr(visitati);
   free(dati);
   return NULL;
@@ -449,7 +459,7 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
   // devo stampare sul file dedicato e su stdout
   FILE* f = xfopen(buff,"w",QUI);
   if(ctrl==1){  // esito positivo
-    printf("%s: Lunghezza minima %d. Tempo di elaborazione %3f\n",buff,lpath,eltime);
+    printf("%s: Lunghezza minima %d. Tempo di elaborazione %.3f secondi\n",buff,lpath,eltime);
     // per la stampa implemento un array di codici attore: li inserisco dalla fine e poi li rileggo dall'inizio 
     int* cammino = malloc((lpath+1) * sizeof(int));
     for(int i=lpath;i>=0;i--){
@@ -463,8 +473,8 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
     }
     // dealloco cammino
     free(cammino);
-  } else {
-    printf("%s: Nessun cammino! Tempo di elaborazione %3f\n",buff,eltime);
+  } else { // esito negativo
+    printf("%s: Nessun cammino! Tempo di elaborazione %.3f secondi\n",buff,eltime);
     if(ctrl==0) { // nessun cammino ma sorgente valida
       fprintf(f,"Non esistono cammini da %d a %d!\n",a,b);
     } else { // ==-1-> nessun cammino perche sorgente NON valida
@@ -484,7 +494,7 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
 // funzione che crea un ABR
 ABRnode* crea_abr(int c, ABRnode* pred)
 {
-  // creiamo il nodo e poi lo inseriamo 
+  // allochiamo lo spazio per un nodo e restituiamo il puntatore la nodo creato
   ABRnode* node = malloc(sizeof(ABRnode));
   assert(node!=NULL);
   *node = (ABRnode){
@@ -497,7 +507,7 @@ ABRnode* crea_abr(int c, ABRnode* pred)
 }
 
 // funzione di inserimento nodo in ABR
-// *root NON VA BENE perche non modificherei davvero i valori di root->sx e root->dx
+// *root NON VA BENE perche non modificherei davvero i valori di root->sx e root->dx (modifiche solo locali)
 int insert_abr(ABRnode **root, ABRnode *node) 
 {
   assert(node != NULL);
@@ -509,7 +519,8 @@ int insert_abr(ABRnode **root, ABRnode *node)
     free(node);    // nodo già presente, lo scartiamo
     return 0;      // non inserito
   }
-  // per il confronto e criterio di ordinamento di usa la funzione shuffle che bilancia un po l'albero
+  // inserimento nei sotto alberi
+  // per il confronto e criterio di ordinamento si usa la funzione shuffle che bilancia un po l'albero
   int rc = shuffle((*root)->codice);
   int nc = shuffle(node->codice);
   // per non salvare la differenza (problematicaa se restituisce valori grandi) si fa prima un confronto 
@@ -535,13 +546,15 @@ void push(FIFOnode** head, FIFOnode** tail, int codice, int lpath, ABRnode* twin
   assert(node!=NULL);
   *node = (FIFOnode){
     .codice = codice,
-    .depth = lpath, 
-    .abr = twin, 
+    .depth = lpath,
+    .abr = twin,
     .next = NULL
   };
   if(*head==NULL){ // lista vuota-> l'elemento viene inserito in coda=testa alla lista
     (*head) = (*tail) = node;
-  } else { // lista non vuota (tail punta all'ultimo elem in lista)-> si isnerisce node dopo tail e si aggiorna tail
+  } else {
+    // lista non vuota (tail punta all'ultimo elem in lista)-> si inserisce node dopo tail e si aggiorna tail
+    // usiamo tail per inserimenti a costo O(1), altrimenti si dove va scorrere la lista
     (*tail)->next = node;
     (*tail) = node;
   }

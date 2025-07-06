@@ -1,7 +1,7 @@
 # compilatori
 JC= javac
 CC= gcc
-CFLAGS= -std=c11 -Wall -O3 -g -pthread
+CFLAGS= -std=c11 -Wall -Wextra -O3 -g -pthread
 LDLIBS= -lm -pthread
 
 # regole di compilazione
@@ -21,6 +21,7 @@ CGraph/utils.o: CGraph/utils.c CGraph/utils.h
 
 CGraph/xerrori.o: CGraph/xerrori.c CGraph/xerrori.h
 	$(CC) $< $(CFLAGS) -c -o $@
+
 
 # Compilazione programma Java
 CreaGrafo.class: JGraph/CreaGrafo.java JGraph/Attore.java

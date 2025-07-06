@@ -94,9 +94,6 @@ int main(int argc, char** argv)
   // dopodiché posso richiudere il file aperto
   if(fclose(fg)==EOF) xtermina("Errore chiusura filegrafo\n",QUI);
 
-  // controllo 
-  // stampa_gr(grafo,grl);
-
 
 
   // ===== CREAZIONE CAMMINI.PIPE - LETTURA INT32 BIT =====
@@ -106,12 +103,12 @@ int main(int argc, char** argv)
     2. tramite funzione dedicata (utils.*) si avvia un ciclo di lettura dalla pipe nel quale si controlla anche la variabile term per vedere se il thread gestore ha registrato
     l'arrivo di un SIGINT-> in tal caso si deve interrompere la lettura, chiudere la pipe e terminare come decritto nel testo (e joinando il thread gestore)
   */
-  // creazione pipe specificando nome e permessi in ottale. permessi pipe: (p) rw- rw- rw-
+  // creazione pipe specificando nome e permessi in ottale. 
   int e = mkfifo("./cammini.pipe",0666);
   if(e==0) // se non ci sono errori oppure gia esisteva la pipe 
     fprintf(stderr,"--- Pipe creata con successo ---\n");  
   else if(errno==EEXIST) 
-    xtermina("Pipe gia esistente",QUI);
+    fprintf(stderr,"--- Pipe già esistente ---\n");
   else 
     xtermina("Errore creazione pipe",QUI);
   // apriamo la pipe il lettura
@@ -123,6 +120,7 @@ int main(int argc, char** argv)
   // chiamare la funzione di terminazione destruction (utils.*)
   minpath_finder(fd,&term,grafo,grl,&thand);
   fprintf(stderr,"--- Chiusura lettura dalla pipe ---\n");
+  // chiusura e distruzione pipe
   xclose(fd,QUI);
   unlink("./cammini.pipe");
 
@@ -130,10 +128,9 @@ int main(int argc, char** argv)
 
   // arrivati a questo punto vuol dire che i valori da leggere sono terminati, e la pipe è stata chiusa e distrutta (non piu presente in FS)
   fprintf(stderr,"## Terminazione programma naturale, attendere prego... ##\n");
-  // in caso di terminazione naturale dobbiamo dire al thread gestore di terminare anche lui, gli inviamo un SIGINT 
+  // in caso di terminazione naturale dobbiamo dire al thread gestore di terminare anche lui, gli inviamo di proposito un SIGINT 
   // per avvisarlo di terminare dato che il programma è giunto alla fine
   pthread_kill(thand,SIGINT);
   destruction(grafo,grl,&thand);
   return 0;
-
 }
