@@ -28,7 +28,7 @@ CreaGrafo.class: JGraph/CreaGrafo.java JGraph/Attore.java
 	$(JC) -d ./ $^
 
 
-# Pulizia
+# Pulizia (separate per comodità durante i test)
 cleanC:
 	rm CGraph/*.o *.out
 

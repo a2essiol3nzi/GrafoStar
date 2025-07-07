@@ -74,7 +74,7 @@ public class CreaGrafo {
       // stampo ogni attore associato alle chiavi
       for(int k: codici){
         bw.write(attori.get(k).toString());
-        bw.newLine();
+        bw.newLine(); // non uso semplicemente +\n perche l'op di concatenazione alloca una nuova stringa, e potrebbe essere costoso
       }
       // al termine richiudo il file nomi.txt
       bw.close();
