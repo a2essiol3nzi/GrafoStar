@@ -36,4 +36,4 @@ cleanJ:
 	rm *.class
 
 clean: 
-	rm CGraph/*.o *.out *.class *.txt
+	rm CGraph/*.o *.out *.class
