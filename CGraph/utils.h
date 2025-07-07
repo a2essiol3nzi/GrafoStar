@@ -50,6 +50,7 @@ typedef struct {
 // struttura dati per i nodi dell'ABR
 typedef struct ABRnode {
   int codice;               // codice attore a cui è associato il nodo corrente
+  int depth;                // profondita nella BFS
   struct ABRnode* pred;     // predecessore nel cammino dalla sorgente-> per ricostruire il cammino 
   struct ABRnode* sx;
   struct ABRnode* dx;       // figli destro e sinistro 
@@ -57,13 +58,11 @@ typedef struct ABRnode {
 
 // struttura dati per la gestione della coda fifo della bfs
 typedef struct {
-  int* codici;  // array dei codici nella fifo
-  int* depth;   // array delle profondita (nel cammino che stiamo costruendo) di ogni codice
-  ABRnode** abr;// array dei nodi abr associati agli elem in lista
-  int cap;      // capacità degli array per eseguire le realloc
-  int head;     // indice di estrazione
-  int tail;     // indice di inserimento
-  int size;     // numero di elementi effetivamente presenti in fifo
+  int* queue;       // coda fifonode 
+  int cap;          // capacità degli array per eseguire le realloc
+  int head;         // indice di estrazione
+  int tail;         // indice di inserimento
+  int size;         // numero di elementi effetivamente presenti in fifo
 } FIFO;
 
 
@@ -104,7 +103,7 @@ void destruction(attore* gr, int grl, pthread_t* thand);
 
 void destroy_abr(ABRnode* root);
 
-void destroy_fifo(FIFO* coda);
+void destroy_fifo(FIFO* q);
 
 
 
@@ -118,7 +117,7 @@ int unshuffle(int n);
 
 double elapsed_time(clock_t a, clock_t b);
 
-void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* dest, int lpath, int ctrl);
+void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* dest, int ctrl);
 
 
 
@@ -127,25 +126,24 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
 
 //----- funzioni ABR (la funzione di ricerca non viene usata)
 // funzione che crea un nodo ABR
-ABRnode* crea_abr(int c, ABRnode* pred);
+ABRnode* crea_abr(int c, int d, ABRnode* pred);
 
-// funzione di inserimento nodo in ABR
+// funzione di inserimento nodo in ABR (basata su shuffle)
 // *root NON VA BENE perche non modificherei davvero i valori di root->sx e root->dx (modifiche solo locali)
 int insert_abr(ABRnode **root, ABRnode *node);
 
-// funzione di ricerca in ABR dato un codice shuffle, ritorna il puntatore a ABRnode con cui matcha il codice shuffled
-ABRnode* search_abr(ABRnode* root, int shuffled);
-
+// funzione di ricerca in ABR (basata su shuffle)
+ABRnode* search_abr(ABRnode* root, int codice);
 
 
 
 
 // ----- funzioni Linked-List
 // funzione di inserimento di un codice di attore in coda bfs
-void push(FIFO* q, int codice, int d, ABRnode* abr);
+void push(FIFO* q, int codice); 
 
 // funzione di estrazione di un codice, profondita e nodo abr da fifo
-void pop(FIFO* q, int* codice, int* d, ABRnode** abr);
+int pop(FIFO* q);
 
 
 
