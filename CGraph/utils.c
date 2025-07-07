@@ -415,10 +415,13 @@ void destroy_abr(ABRnode* root)
 // funzione per deallocazione FIFO
 void destroy_fifo(FIFOnode* head)
 {
-  if(head!=NULL){
-    destroy_fifo(head->next);
-    free(head);
+  // ricorsione può essere lenta se ci sono molti nodi
+  while (head!=NULL){
+    FIFOnode* tmp = head;
+    head->next = head;
+    free(tmp);
   }
+  
 }
 
 

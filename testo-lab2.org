@@ -231,8 +231,7 @@ Naturalmente il controllo va effettuato sui file che avete consegnato: il mio co
 
 
 * TODO IDEE:
- - ripulire xerrori.*
- + finire il README
+ - finire il README
  + studiare cammini.py
  + verificare i controlli sulle maloc e realloc
  + ottimizzare BFS
