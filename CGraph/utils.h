@@ -42,26 +42,29 @@ typedef struct {
 // struttura dati da passare ai thread che calcolano i cammini minimi tra attori
 typedef struct {
   int a;
-  int b;    // interi letti dalla pipe
+  int b;        // interi letti dalla pipe
   attore* gr;
   int grl;
 } datiminpath;
 
 // struttura dati per i nodi dell'ABR
 typedef struct ABRnode {
-  int codice;       // codice dell'attore a cui si riferisce
-  struct ABRnode* pred;    // predecessore nel cammino dalla sorgente-> per ricostruire il cammino 
+  int codice;               // codice attore a cui è associato il nodo corrente
+  struct ABRnode* pred;     // predecessore nel cammino dalla sorgente-> per ricostruire il cammino 
   struct ABRnode* sx;
-  struct ABRnode* dx;      // figli destro e sinistro 
+  struct ABRnode* dx;       // figli destro e sinistro 
 } ABRnode;
 
-// struttura dati per l'implementazione della Linked-List fifo usata nella BFS
-typedef struct FIFOnode {
-  int codice;       // codice dell'attore (nodo del grafo) 
-  int depth;        // distanza dalla sorgente (lunghezza path) 
-  ABRnode* abr;     // puntatore al rispettivo nodo in ABR (per la creazione del ped)
-  struct FIFOnode* next;   // puntatore all'elemento successivo della LL
-} FIFOnode;
+// struttura dati per la gestione della coda fifo della bfs
+typedef struct {
+  int* codici;  // array dei codici nella fifo
+  int* depth;   // array delle profondita (nel cammino che stiamo costruendo) di ogni codice
+  ABRnode** abr;// array dei nodi abr associati agli elem in lista
+  int cap;      // capacità degli array per eseguire le realloc
+  int head;     // indice di estrazione
+  int tail;     // indice di inserimento
+  int size;     // numero di elementi effetivamente presenti in fifo
+} FIFO;
 
 
 
@@ -101,7 +104,7 @@ void destruction(attore* gr, int grl, pthread_t* thand);
 
 void destroy_abr(ABRnode* root);
 
-void destroy_fifo(FIFOnode* head);
+void destroy_fifo(FIFO* coda);
 
 
 
@@ -130,16 +133,19 @@ ABRnode* crea_abr(int c, ABRnode* pred);
 // *root NON VA BENE perche non modificherei davvero i valori di root->sx e root->dx (modifiche solo locali)
 int insert_abr(ABRnode **root, ABRnode *node);
 
+// funzione di ricerca in ABR dato un codice shuffle, ritorna il puntatore a ABRnode con cui matcha il codice shuffled
+ABRnode* search_abr(ABRnode* root, int shuffled);
+
 
 
 
 
 // ----- funzioni Linked-List
 // funzione di inserimento di un codice di attore in coda bfs
-void push(FIFOnode** head, FIFOnode** tail, int codice, int lpath, ABRnode* twin);
+void push(FIFO* q, int codice, int d, ABRnode* abr);
 
-// funzione di estrazione di un codice di attore in coda bfs
-FIFOnode* pop(FIFOnode** head);
+// funzione di estrazione di un codice, profondita e nodo abr da fifo
+void pop(FIFO* q, int* codice, int* d, ABRnode** abr);
 
 
 

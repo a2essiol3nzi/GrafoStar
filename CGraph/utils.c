@@ -326,31 +326,39 @@ void* breadth_first_search(void* args)
     return NULL;
   }
   // INIZIO ALGORITMO (con aggiustamenti per stop prima del termine di tutta la visita in caso si trovi il nodo interessato)
-  // creo le strutture necessarei all'algoritmo: ABR dei nodi visitati del grafo, Linked-List fifo per i raggiunti ma non ancora analizzati
-  // inserisco la sorgente in raggiunti e visitati per dare il via all'algo
+  // creo le strutture necessarei all'algoritmo: ABR dei nodi visitati del grafo, un array circolare fifo per i raggiunti ma non ancora analizzati
+  // in particolare si definisce una struct apposita per l'intera gestione
+  // aggiungo la sorgente all'ABR
   ABRnode* visitati = crea_abr(dati->a,NULL);
-  FIFOnode* raggiunti = NULL; // indirizzo di lettura/estrazione, serve anche uno di inserimento per efficienza
-  FIFOnode* rtail = raggiunti; // inizialmente uguale a "head"
-  FIFOnode* est = NULL; // per l'estrazione da raggiunti
-  // avvio l'algoritmo  e continuero fino a che la FIFO non è vuota
-  push(&raggiunti,&rtail,dati->a,0,visitati);
-  while(raggiunti!=NULL){
+  FIFO* raggiunti = malloc(sizeof(FIFO)); 
+  *raggiunti = (FIFO){
+    .head = 0,
+    .tail = 0,
+    .size = 0,
+    .cap = 256
+  };
+  raggiunti->codici = malloc(sizeof(int)*(raggiunti->cap));
+  raggiunti->depth = malloc(sizeof(int)*(raggiunti->cap));
+  raggiunti->abr = malloc(sizeof(ABRnode*)*(raggiunti->cap));
+  // inserisco la sorgente, avvio l'algoritmo e continuero fino a che la FIFO non è vuota
+  push(raggiunti,dati->a,0,visitati);
+  while(raggiunti->size!=0){
     // estraggo dalla testa
-    est = pop(&raggiunti);
-    assert(est!=NULL);
-    // un nodo associato ad est sarà gia presente in ABR (visitati)
+    int est_c, est_d;
+    ABRnode* est_abr = NULL;
+    pop(raggiunti,&est_c,&est_d,&est_abr);
+    // un nodo associato ad est_c sarà gia presente in ABR (visitati)
     // a questo punto INTANTO SI VERIFICA SE (il nodo appena estratto) È LA NOSTRA DESTINAZIONE (dati->b) in tal caso abbiamo finito,
     // ci interessa solo lui non tutta la BFS
-    if(est->codice == dati->b){
+    if(est_c == dati->b){
       // caloclo il tempo e faccio le dovute stampe
       clock_t end = times(NULL);
       double eltime = elapsed_time(start,end);
       // stampa con esito positivo e dealloco tutto
-      stampa_minpath(dati->a,dati->b,dati->gr,dati->grl,eltime,est->abr,est->depth,1);
+      stampa_minpath(dati->a,dati->b,dati->gr,dati->grl,eltime,est_abr,est_d,1);
       // da deallocare sta volta abbiamo l'ABR, eventuali nodi rimasti in FIFO, il nodo di FIFO appena estratto, e come prima i dati
       destroy_abr(visitati); 
       destroy_fifo(raggiunti);
-      free(est);
       free(dati);
       // termino
       return NULL;
@@ -358,20 +366,17 @@ void* breadth_first_search(void* args)
       // (ALTRIMENTI) dobbiamo aggiungere alla FIFO tutti i suoi adiacenti nel grafo (tranne quelli gia presenti in visitati)
       // -> gia inseriti per adiacenza con un altro nodo (a gestire l'inserimento corretto ci penserà la funzione insert_abr)
       // ricaviamo l'attore per definire gli adiacenti
-      attore* est_att = bsearch(&est->codice,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
+      attore* est_att = bsearch(&est_c,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
       int* adj = est_att->cop;
       for(int i=0;i<est_att->numcop;i++){
         // creo un nodo ABR di un adiacente e provo ad inserirlo
-        int adj_depth = est->depth +1;
-        ABRnode* adj_node = crea_abr(adj[i],est->abr);
+        ABRnode* adj_node = crea_abr(adj[i],est_abr);
         if(insert_abr(&visitati,adj_node))  // se è stato aggiunto è nuovo -> devo aggiungerlo anche in FIFO
-          push(&raggiunti,&rtail,adj[i],adj_depth,adj_node);
+          push(raggiunti,adj[i],est_d+1,adj_node);
       }
-      // a questo punto posso deallocare il nodo usato e non piu necessario
-      free(est);
     }
   }
-  assert(raggiunti==NULL);
+  assert(raggiunti->size==0);
   clock_t end = times(NULL);
   // se siamo qui abbiamo eseguito l'intera BFS, MA non abbiamo trovato un percorso da a a b (altrimenti ci saremmo fermati)
   // dobbiamo terminare stampando un esito negativo 
@@ -413,15 +418,12 @@ void destroy_abr(ABRnode* root)
 }
 
 // funzione per deallocazione FIFO
-void destroy_fifo(FIFOnode* head)
+void destroy_fifo(FIFO* coda)
 {
-  // ricorsione può essere lenta se ci sono molti nodi
-  while (head!=NULL){
-    FIFOnode* tmp = head;
-    head->next = head;
-    free(tmp);
-  }
-  
+  // dealloco tutte le malloc interne alla struct FIFO
+  free(coda->codici); free(coda->depth);
+  // e poi la struct
+  free(coda);
 }
 
 
@@ -526,7 +528,7 @@ int insert_abr(ABRnode **root, ABRnode *node)
   // per il confronto e criterio di ordinamento si usa la funzione shuffle che bilancia un po l'albero
   int rc = shuffle((*root)->codice);
   int nc = shuffle(node->codice);
-  // per non salvare la differenza (problematicaa se restituisce valori grandi) si fa prima un confronto 
+  // per non salvare la differenza (problematica se restituisce valori grandi) si fa prima un confronto 
   int diff = (rc > nc) - (rc < nc);  // == 1,0,-1
   if (diff > 0) { //== 1-> rc>nc
     return insert_abr(&(*root)->sx, node);  // vai a sinistra
@@ -542,36 +544,55 @@ int insert_abr(ABRnode **root, ABRnode *node)
 
 // ----- funzioni Linked-List
 // funzione di inserimento di un codice di attore in coda bfs
-void push(FIFOnode** head, FIFOnode** tail, int codice, int lpath, ABRnode* twin)
+void push(FIFO* q, int codice, int d, ABRnode* abr) 
 {
-  // creo il nodo da inserire
-  FIFOnode* node = malloc(sizeof(FIFOnode));
-  assert(node!=NULL);
-  *node = (FIFOnode){
-    .codice = codice,
-    .depth = lpath,
-    .abr = twin,
-    .next = NULL
-  };
-  if(*head==NULL){ // lista vuota-> l'elemento viene inserito in coda=testa alla lista
-    (*head) = (*tail) = node;
-  } else {
-    // lista non vuota (tail punta all'ultimo elem in lista)-> si inserisce node dopo tail e si aggiorna tail
-    // usiamo tail per inserimenti a costo O(1), altrimenti si dove va scorrere la lista
-    (*tail)->next = node;
-    (*tail) = node;
+  // Se la FIFO è piena, dobbiamo eseguire "una realloc" MA NON POSSIAMO FARLO SEMPLICEMENTE
+  // essendo un array circolare una semplice realloc copia gli elem nei soliti indirizzi precedenti ma se la coda è "spezzata"
+  // nell'array circolare questo non funzionerà!
+  if (q->size == q->cap) {
+    int newcap = q->cap * 2;
+    int* newcodici = malloc(newcap * sizeof(int));
+    int* newdepth  = malloc(newcap * sizeof(int));
+    ABRnode** newabr = malloc(newcap * sizeof(ABRnode*));
+    // Ricopia in ordine corretto (dalla head in poi, circolarmente)-> in altre parole reinserisco tutto in cima all'array
+    for (int i = 0; i < q->size; ++i) {
+      int idx = (q->head + i) % q->cap;
+      newcodici[i] = q->codici[idx];
+      newdepth[i]  = q->depth[idx];
+      newabr[i]    = q->abr[idx];
+    }
+    // Sostituisco ai vecchi array
+    free(q->codici);
+    free(q->depth);
+    free(q->abr);
+    q->codici = newcodici;
+    q->depth  = newdepth;
+    q->abr    = newabr;
+    q->head = 0;
+    q->tail = q->size;
+    q->cap = newcap;
   }
+  // Inserimento in coda
+  q->codici[q->tail] = codice;
+  q->depth[q->tail] = d;
+  q->abr[q->tail] = abr;
+  q->tail = (q->tail + 1) % q->cap;
+  q->size++;
 }
 
+
 // funzione di estrazione di un nodo da FIFO
-FIFOnode* pop(FIFOnode** head)
+void pop(FIFO* q, int* codice, int* d, ABRnode** abr)
 {
-  assert(*head!=NULL);
-  // leggo il campo codice in head
-  FIFOnode* node = *head;
-  // aggiorno la testa 
-  (*head) = (*head)->next; 
-  return node;
+  assert(q!=NULL);
+  assert(q->size>=0);
+  // estraggo 
+  *codice = q->codici[q->head];
+  *d = q->depth[q->head];
+  *abr = q->abr[q->head];
+  // aggiorno head e size
+  q->head = (q->head + 1) % q->cap;
+  q->size -= 1;
 }
 
 
