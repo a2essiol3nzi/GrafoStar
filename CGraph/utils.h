@@ -49,8 +49,8 @@ typedef struct {
 
 // struttura dati per i nodi dell'ABR
 typedef struct ABRnode {
+  attore* att;              // puntatore all'attore associato
   int codice;               // codice attore a cui è associato il nodo corrente
-  int depth;                // profondita nella BFS
   struct ABRnode* pred;     // predecessore nel cammino dalla sorgente-> per ricostruire il cammino 
   struct ABRnode* sx;
   struct ABRnode* dx;       // figli destro e sinistro 
@@ -58,11 +58,10 @@ typedef struct ABRnode {
 
 // struttura dati per la gestione della coda fifo della bfs
 typedef struct {
-  int* queue;       // coda fifonode 
+  attore** queue;    // coda fifo di attore* (se usassivo solo attore* con una realloc perderemmo tutte le copie)
   int cap;          // capacità degli array per eseguire le realloc
   int head;         // indice di estrazione
   int tail;         // indice di inserimento
-  int size;         // numero di elementi effetivamente presenti in fifo
 } FIFO;
 
 
@@ -117,7 +116,7 @@ int unshuffle(int n);
 
 double elapsed_time(clock_t a, clock_t b);
 
-void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* dest, int ctrl);
+void stampa_minpath(int a, int b, double eltime, ABRnode* dest, int ctrl);
 
 
 
@@ -126,7 +125,7 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
 
 //----- funzioni ABR (la funzione di ricerca non viene usata)
 // funzione che crea un nodo ABR
-ABRnode* crea_abr(int c, int d, ABRnode* pred);
+ABRnode* crea_abr(attore* a, ABRnode* pred);
 
 // funzione di inserimento nodo in ABR (basata su shuffle)
 // *root NON VA BENE perche non modificherei davvero i valori di root->sx e root->dx (modifiche solo locali)
@@ -140,10 +139,10 @@ ABRnode* search_abr(ABRnode* root, int codice);
 
 // ----- funzioni Linked-List
 // funzione di inserimento di un codice di attore in coda bfs
-void push(FIFO* q, int codice); 
+void push(FIFO* q, attore* a);
 
 // funzione di estrazione di un codice, profondita e nodo abr da fifo
-int pop(FIFO* q);
+attore* pop(FIFO* q);
 
 
 

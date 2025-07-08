@@ -287,7 +287,7 @@ void* handler_body(void* args)
       break;
     } else {
       // se non ce la pipe si avvisa che si sta ancora costruendo il grafo
-      printf("COstruzione GRAFO DELLE STAR in corso, attendere...\n");
+      printf("Costruzione GRAFO DELLE STAR in corso, attendere...\n");
     }
   }
   return NULL;
@@ -297,6 +297,7 @@ void* handler_body(void* args)
 // probabilmente sarebbe stato piu consono implementare l'algo (da "INIZIO ALGORITMO" in poi) in una funzione separata,
 // ma trattandosi comunque di una versione dedicata alla singola ricerca dei cammini in cui non sempre si esegue l'intera visita
 // ho preferito fare tutto qui, dedicando però una funzione a parte per la stampa e ricostruzione del cammino
+// NOTA: controllo se sono arrivato alla destinazione al momento dell'inserimento nella coda (risparmio molte iterazioni rispetto a controllarlo all'estrazione)
 void* breadth_first_search(void* args)
 {
   datiminpath* dati = (datiminpath* )args;
@@ -308,72 +309,73 @@ void* breadth_first_search(void* args)
   attore* d = bsearch(&dati->b,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
   if(s==NULL || d==NULL){
     // dobbiamo rileggere times per vedere quanti cicli sono passati, scrivere nel file e su stdout l'esito (negativo) della computazione e poi terminare
-    clock_t end = times(NULL);
-    double eltime = elapsed_time(start,end);
+    double eltime = elapsed_time(start,times(NULL));
     // funzione che esegue le varie stampe in base all'esito, rappresentato dall'ultimo arg (ctrl)
     int ctrl = (s==NULL)? -1 : 0;
-    stampa_minpath(dati->a,dati->b,NULL,0,eltime,NULL,ctrl); 
+    stampa_minpath(dati->a,dati->b,eltime,NULL,ctrl); 
     // nessun ABR o FIFO da deallocare
-    // termino
+    free(dati);
+    return NULL;
+  } 
+
+  // strutture necessarei all'algoritmo: ABR dei nodi visitati del grafo, un array dinamico FIFO per i raggiunti ma non ancora analizzati
+  // creo l'ABR
+  ABRnode* visitati = crea_abr(s,NULL);
+  assert(visitati!=NULL);
+  if(dati->a == dati->b) {
+    // controllo il caso in cui sorg==dest
+    double eltime = elapsed_time(start,times(NULL));
+    stampa_minpath(dati->a,dati->b,eltime,visitati,1);
+    // dealloco l'unico nodo ABR senza FIFO
     free(dati);
     return NULL;
   }
-  // INIZIO ALGORITMO 
-  // creo le strutture necessarei all'algoritmo: ABR dei nodi visitati del grafo, un array circolare FIFO per i raggiunti ma non ancora analizzati
-  // in particolare si definisce una struct apposita per l'intera gestione
-  // aggiungo la sorgente all'ABR
-  ABRnode* visitati = crea_abr(dati->a,0,NULL);
-  assert(visitati!=NULL);
-  // creo la fifo
+  // creo la FIFO
   FIFO raggiunti = {
-    .cap = 128,
+    .cap = 1024,
     .head = 0,
     .tail = 0,
-    .size = 0
   };
-  raggiunti.queue = xmalloc(raggiunti.cap * sizeof(int),QUI);
+  raggiunti.queue = xmalloc(raggiunti.cap * sizeof(attore*),QUI);
+
+  // INIZIO ALGORITMO 
   // inserisco la sorgente, avvio l'algoritmo e continuero fino a che la FIFO non è vuota
-  push(&raggiunti,dati->a);
-  while(raggiunti.size!=0){
-    // estraggo dalla testa
-    int est = pop(&raggiunti);
-    ABRnode* est_abr = search_abr(visitati,est);
-    // un nodo associato ad est sarà gia presente in ABR (visitati)
-    // a questo punto INTANTO SI VERIFICA SE (il nodo appena estratto) È LA NOSTRA DESTINAZIONE (dati->b) in tal caso abbiamo finito,
-    // ci interessa solo lui non tutta la BFS
-    if(est == dati->b){
-      // calcolo il tempo e faccio le dovute stampe
-      clock_t end = times(NULL);
-      double eltime = elapsed_time(start,end);
-      // stampa con esito positivo e dealloco tutto
-      stampa_minpath(dati->a,dati->b,dati->gr,dati->grl,eltime,est_abr,1);
-      // da deallocare sta volta abbiamo l'ABR, e l'array FIFO
-      destroy_abr(visitati); 
-      destroy_fifo(&raggiunti);
-      free(dati);
-      // termino
-      return NULL;
-    } else {
-      // (ALTRIMENTI) dobbiamo aggiungere alla FIFO tutti i suoi adiacenti nel grafo (tranne quelli gia presenti in visitati)
-      // -> gia inseriti per adiacenza con un altro nodo (a gestire l'inserimento corretto ci penserà la funzione insert_abr)
-      // ricaviamo l'attore per definire gli adiacenti
-      attore* est_att = bsearch(&est,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
-      assert(est_att!=NULL);
-      int* adj = est_att->cop;
-      for(int i=0;i<est_att->numcop;i++){
-        // creo un nodo ABR di un adiacente e provo ad inserirlo
-        ABRnode* adj_node = crea_abr(adj[i],est_abr->depth+1,est_abr);
-        if(insert_abr(&visitati,adj_node))  // se è stato aggiunto è nuovo -> devo aggiungerlo anche in FIFO
-          push(&raggiunti,adj[i]);
+  push(&raggiunti,s);
+  while(raggiunti.head < raggiunti.tail){ // fino a che non sono uguali == FIFO vuota
+    // estraggo la testa dalla fifo
+    attore* est = pop(&raggiunti);
+    assert(est!=NULL);
+    ABRnode* est_abr = search_abr(visitati,est->codice);
+    assert(est_abr!=NULL);
+    // aggiungo gli adiacenti e controllo l'arrivo
+    for(int i=0;i<est->numcop;i++){
+      // si ricava l'attore
+      attore* adj = bsearch(&est->cop[i],dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
+      assert(adj!=NULL);
+      ABRnode* adj_abr = crea_abr(adj,est_abr);
+      // tento l'inserimento
+      if(insert_abr(&visitati,adj_abr)){
+        // nuovo nodo, verifico fine
+        if(adj->codice == dati->b){
+          // ho la mia destinazione posso terminare stampando e deallocando
+          double eltime = elapsed_time(start,times(NULL));
+          stampa_minpath(dati->a,dati->b,eltime,adj_abr,1);
+          destroy_abr(visitati);
+          destroy_fifo(&raggiunti);
+          free(dati);
+          return NULL;
+        }
+        // altrimenti aggiungo alla fifo
+        push(&raggiunti,adj);
       }
+      // altrimenti nulla, continuo con la valutzione degli adiacenti
     }
   }
-  assert(raggiunti.size==0);
   clock_t end = times(NULL);
   // se siamo qui abbiamo eseguito l'intera BFS, MA non abbiamo trovato un percorso da a a b (altrimenti ci saremmo fermati)
   // dobbiamo terminare stampando un esito negativo 
   double eltime = elapsed_time(start,end);
-  stampa_minpath(dati->a,dati->b,NULL,0,eltime,NULL,0);
+  stampa_minpath(dati->a,dati->b,eltime,NULL,0);
   // dealloco ABR e FIFO
   destroy_fifo(&raggiunti);
   destroy_abr(visitati);
@@ -447,7 +449,7 @@ double elapsed_time(clock_t a, clock_t b)
 
 // funzione che stampa i cammini minimi calcolati dai thread (se esistono)
 // ctrl è un valore di controllo che passo io alla funzione che rappresenza l'esito dell'algor
-void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* dest, int ctrl)
+void stampa_minpath(int a, int b, double eltime, ABRnode* dest, int ctrl)
 {
   // creo nome file
   char buff[64]; // piu che sufficiente
@@ -456,21 +458,23 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
   FILE* f = xfopen(buff,"w",QUI);
   if(ctrl==1){  // esito positivo
     // per la stampa mi appoggio ad un array di costruzione per il cammino in cui inserisco i vari codici (al rovescio== dalla dest) e poi li rileggo 
-    // dalla sorgente
-    int* cammino = xmalloc((dest->depth+1) * sizeof(int),QUI);
-    int len = dest->depth;
-    for(int i=len;i>=0;i--){
-      cammino[i] = dest->codice;
+    // dalla sorgente (array dinamico con cui costruisco anche depth da stampare)
+    int len = 0, cap = 64;
+    attore* cammino = xmalloc(cap * sizeof(attore),QUI);
+    while(dest!=NULL){
+      if(len==cap){
+        cap += 10;
+        cammino = realloc(cammino,cap * sizeof(attore));
+      }
+      cammino[len++] = *dest->att;
       dest = dest->pred;
     }
-    // adesso per ogni codice ricavo l'attore per la stampa
-    for(int i=0;i<=len;i++){
-      attore* a = bsearch(&cammino[i],gr,grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
-      fprintf(f,"%d\t%s\t%d\n",a->codice,a->nome,a->anno);
-    }
+    // adesso lo scorro al contrario
+    for(int i=len-1;i>=0;i--)
+      fprintf(f,"%d\t%s\t%d\n",cammino[i].codice,cammino[i].nome,cammino[i].anno);
     // dealloco cammino
     free(cammino);
-    printf("%s: Lunghezza minima %d. Tempo di elaborazione %.3f secondi.\n",buff,len,eltime);
+    printf("%s: Lunghezza minima %d. Tempo di elaborazione %.3f secondi.\n",buff,len-1,eltime);
   } 
   else { // esito negativo
     printf("%s: Nessun cammino! Tempo di elaborazione %.3f secondi.\n",buff,eltime);
@@ -492,13 +496,13 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
 
 //----- funzioni ABR (la funzione di ricerca non viene usata)
 // funzione che crea un ABR
-ABRnode* crea_abr(int c, int d, ABRnode* pred)
+ABRnode* crea_abr(attore* a, ABRnode* pred)
 {
   // allochiamo lo spazio per un nodo e restituiamo il puntatore la nodo creato
   ABRnode* node = xmalloc(sizeof(ABRnode),QUI);
   *node = (ABRnode){
-    .codice = c,
-    .depth = d,
+    .att = a,
+    .codice = a->codice,
     .pred = pred,
     .sx = NULL,
     .dx = NULL
@@ -549,58 +553,52 @@ ABRnode* search_abr(ABRnode* root, int codice)
 }
 
 
-
-
-
-
-// ----- funzioni Linked-List
-// funzione di inserimento di un codice di attore in coda bfs
-void push(FIFO* q, int codice) 
-{
-  // Se la FIFO è piena, dobbiamo eseguire "una realloc" MA NON POSSIAMO FARLO SEMPLICEMENTE
-  // essendo un array circolare una semplice realloc copia gli elem nei soliti indirizzi precedenti ma se la coda è "spezzata"
-  // nell'array circolare questo non funzionerà!
-  assert(q != NULL);
-  assert(q->queue != NULL);
-  assert(q->size <= q->cap);
-
-  // Se pieno, raddoppia la capacità
-  if (q->size == q->cap) {
-    int newcap = q->cap * 2;
-    int* newqueue = xmalloc(sizeof(int) * newcap,QUI);
-
-    // Ricopia i dati in ordine corretto
-    for (int i = 0; i < q->size; ++i) {
-      // la coda può essere "spezzata" si deve calcolare il corretto indice
-      int idx = (q->head + i) % q->cap;
-      newqueue[i] = q->queue[idx];
-    }
-
+/*
+// serve "realloc", dobbiamo aggiornare head, tail, e cap
+    q->cap *= 2;
+    // eseguo "realloc" efficiente (in spazio)
+    attore** newq = malloc(q->cap * sizeof(attore*));
+    int size = q->tail - q->head;
+    for(int i=0;i<size;i++)
+      newq[i] = q->queue[i + q->head];
     free(q->queue);
-    q->queue = newqueue;
+    q->queue = newq;
+    q->tail = q->tail - q->head;
     q->head = 0;
-    q->tail = q->size;
-    q->cap = newcap;
+*/
+
+
+
+// ----- funzioni Array FIFO
+// funzione di inserimento di un codice di attore in coda bfs
+void push(FIFO* q, attore* a) {
+  assert(q != NULL);
+  // coda piena, ma c'è spazio in testa -> risitemiamo
+  if (q->tail == q->cap && q->head > 0) {
+    int size = q->tail - q->head;
+    // void *memmove(size_t n, void dest[n], const void src[n], size_t n):
+    // memmove sposta n bytes da src a dest, nel nostro caso lo usiamo per riutilizzare memoria
+    memmove(q->queue, q->queue + q->head, size * sizeof(attore*));
+    q->tail = size;
+    q->head = 0;
   }
-
-  // Inserisce in coda
-  q->queue[q->tail] = codice;
-
-  q->tail = (q->tail + 1) % q->cap;
-  q->size += 1;
+  // coda piena, niente spazio -> raddoppiamo
+  if (q->tail == q->cap) {
+    q->cap *= 2;
+    q->queue = realloc(q->queue, q->cap * sizeof(attore*));
+    if (!q->queue) xtermina("Errore realloc FIFO", QUI);
+  }
+  // Inserimento classico
+  q->queue[q->tail++] = a;
 }
 
 
 // funzione di estrazione di un nodo da FIFO
-int pop(FIFO* q)
+attore* pop(FIFO* q)
 {
-  assert(q != NULL);
-  assert(q->queue != NULL);
-  assert(q->size > 0);
-  int code = q->queue[q->head];
-  q->head = (q->head + 1) % q->cap;
-  q->size -= 1;
-  return code;
+  assert(q!=NULL);
+  assert(q->head!=q->tail);
+  return q->queue[(q->head++)];
 }
 
 

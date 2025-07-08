@@ -10,7 +10,7 @@ void* xmalloc(size_t size, int linea, char* file)
 {
   void* ptr = malloc(size);
   if(ptr==NULL){  // errore nell'allocazione
-    perror("Errore allocazione malloc");
+    perror("Errore malloc");
     fprintf(stderr,"== %d == Linea: %d, File: %s\n",getpid(),linea,file);
     exit(1);
   }
