@@ -229,9 +229,12 @@ insieme ad una spiegazione del problema (a volte manca semplicemente un file). N
 
 Naturalmente il controllo va effettuato sui file che avete consegnato: il mio consiglio è di fare una clone del progetto su una nuova directory con il comando git clone ilmioprogetto.git nuovadir e di effettuare il test dentro la directory nuovadir
 
+** Tempi medi:
+Java: ~2 min su lab2 (~1 su laptop)
+C (intera bfs): ~14 sec su lab2 (~8 su laptop)
+
 
 * TODO IDEE:
  - finire il README
  + studiare cammini.py
- + verificare i controlli sulle maloc e realloc
- + ottimizzare BFS
+ - ottimizzare BFS

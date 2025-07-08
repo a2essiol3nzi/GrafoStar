@@ -11,7 +11,7 @@ attore* init_gr(FILE* fn, int* len)
   // allocazione spazio grafo
   // dim iniziale settata a 1024 attori
   int capacita = 1024;
-  attore* gr = malloc(capacita*sizeof(attore));
+  attore* gr = xmalloc(capacita*sizeof(attore),QUI);
   // var per lettura file
   int codice, anno;
   char* nome = NULL;
@@ -29,7 +29,7 @@ attore* init_gr(FILE* fn, int* len)
     if(*len==capacita){
       capacita *= 2;
       gr = realloc(gr, capacita*sizeof(attore));
-      assert(gr!=NULL);
+      if(gr==NULL) xtermina("Errore realloc",QUI);
     }
     // inizializzo l'attore (codice nome anno)
     gr[*len] = (attore){
@@ -129,7 +129,7 @@ void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pt
     // leggiamo dalla pipe due interi, il primo si legge e controlliamo che non sia stata chiusa la pipe, il secondo abbiamo la sicurezza 
     // di trovarlo (per come vengono passati gli interi dalla pipe)
     // si usa malloc perhce altrimenti al di fuori del blocco la struct viene deallocata!
-    datiminpath* dth = malloc(sizeof(datiminpath));
+    datiminpath* dth = xmalloc(sizeof(datiminpath),QUI);
     int32_t a,b;
     int n = read(fd,&a,sizeof(int32_t));
     if(n==0){ // scrittore ha chiuso la sua estremita
@@ -159,7 +159,7 @@ void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pt
   }
   // verifichiamo se il thread gestore ci avvisa del segnale di SIGINT
   if(*term){
-    fprintf(stderr,"## Terminazione INnaturale, attendere prego... ##\n");
+    fprintf(stderr,"## Terminazione INnaturale del programma, attendere prego... ##\n");
     // thread gestore sarà gia terminato, chiudo la pipe
     xclose(fd,QUI);
     fprintf(stderr,"--- Chiusura lettura dalla pipe ---\n");
@@ -215,8 +215,7 @@ void* cons_body(void* args)
     int* cop = NULL;
     // verifico che l'attore abbia collaboratori, e in caso alloco dello spazio per i coll
     if(numcop>0){
-      cop = malloc(numcop * sizeof(int));
-      assert(cop!=NULL);
+      cop = xmalloc(numcop * sizeof(int),QUI);
       for(int i=0;i<numcop;i++)
         cop[i] = atoi(strtok_r(NULL,"\t",&saveptr));
     }
@@ -312,21 +311,23 @@ void* breadth_first_search(void* args)
   // Preparazione all'esecuzione dell'algoritmo
   // inizio la misurazione del tempo (#tick del ciclo di clock) per misurare la durata della funzione
   clock_t start = times(NULL);
-  // verifico che la sorgente sia valida
+  // verifico che i codici siano validi (evito di eseguire intere bfs per nodi non presenti)
   attore* s = bsearch(&dati->a,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
-  if(s==NULL){
-    // dobbiamo rileggere times per vedere quanti cicli sono passati, scrivere nel file e su stdout il risultato (negativo) della computazione e poi terminare
+  attore* d = bsearch(&dati->b,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
+  if(s==NULL || d==NULL){
+    // dobbiamo rileggere times per vedere quanti cicli sono passati, scrivere nel file e su stdout l'esito (negativo) della computazione e poi terminare
     clock_t end = times(NULL);
     double eltime = elapsed_time(start,end);
     // funzione che esegue le varie stampe in base all'esito, rappresentato dall'ultimo arg (ctrl)
-    stampa_minpath(dati->a,dati->b,NULL,0,eltime,NULL,-1); 
+    int ctrl = (s==NULL)? -1 : 0;
+    stampa_minpath(dati->a,dati->b,NULL,0,eltime,NULL,ctrl); 
     // nessun ABR o FIFO da deallocare
     // termino
     free(dati);
     return NULL;
   }
-  // INIZIO ALGORITMO (con aggiustamenti per stop prima del termine di tutta la visita in caso si trovi il nodo interessato)
-  // creo le strutture necessarei all'algoritmo: ABR dei nodi visitati del grafo, un array circolare fifo per i raggiunti ma non ancora analizzati
+  // INIZIO ALGORITMO 
+  // creo le strutture necessarei all'algoritmo: ABR dei nodi visitati del grafo, un array circolare FIFO per i raggiunti ma non ancora analizzati
   // in particolare si definisce una struct apposita per l'intera gestione
   // aggiungo la sorgente all'ABR
   ABRnode* visitati = crea_abr(dati->a,0,NULL);
@@ -338,24 +339,23 @@ void* breadth_first_search(void* args)
     .tail = 0,
     .size = 0
   };
-  raggiunti.queue = malloc(raggiunti.cap * sizeof(int));
-  assert(raggiunti.queue!=NULL);
+  raggiunti.queue = xmalloc(raggiunti.cap * sizeof(int),QUI);
   // inserisco la sorgente, avvio l'algoritmo e continuero fino a che la FIFO non è vuota
   push(&raggiunti,dati->a);
   while(raggiunti.size!=0){
     // estraggo dalla testa
     int est = pop(&raggiunti);
     ABRnode* est_abr = search_abr(visitati,est);
-    // un nodo associato ad est_c sarà gia presente in ABR (visitati)
+    // un nodo associato ad est sarà gia presente in ABR (visitati)
     // a questo punto INTANTO SI VERIFICA SE (il nodo appena estratto) È LA NOSTRA DESTINAZIONE (dati->b) in tal caso abbiamo finito,
     // ci interessa solo lui non tutta la BFS
     if(est == dati->b){
-      // caloclo il tempo e faccio le dovute stampe
+      // calcolo il tempo e faccio le dovute stampe
       clock_t end = times(NULL);
       double eltime = elapsed_time(start,end);
       // stampa con esito positivo e dealloco tutto
       stampa_minpath(dati->a,dati->b,dati->gr,dati->grl,eltime,est_abr,1);
-      // da deallocare sta volta abbiamo l'ABR, eventuali nodi rimasti in FIFO, il nodo di FIFO appena estratto, e come prima i dati
+      // da deallocare sta volta abbiamo l'ABR, e l'array FIFO
       destroy_abr(visitati); 
       destroy_fifo(&raggiunti);
       free(dati);
@@ -465,7 +465,7 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
   if(ctrl==1){  // esito positivo
     // per la stampa mi appoggio ad un array di costruzione per il cammino in cui inserisco i vari codici (al rovescio== dalla dest) e poi li rileggo 
     // dalla sorgente
-    int* cammino = malloc((dest->depth+1) * sizeof(int));
+    int* cammino = xmalloc((dest->depth+1) * sizeof(int),QUI);
     int len = dest->depth;
     for(int i=len;i>=0;i--){
       cammino[i] = dest->codice;
@@ -478,10 +478,10 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
     }
     // dealloco cammino
     free(cammino);
-    printf("%s: Lunghezza minima %d. Tempo di elaborazione %.3f secondi\n",buff,len,eltime);
+    printf("%s: Lunghezza minima %d. Tempo di elaborazione %.3f secondi.\n",buff,len,eltime);
   } 
   else { // esito negativo
-    printf("%s: Nessun cammino! Tempo di elaborazione %.3f secondi\n",buff,eltime);
+    printf("%s: Nessun cammino! Tempo di elaborazione %.3f secondi.\n",buff,eltime);
     if(ctrl==0) { // nessun cammino ma sorgente valida
       fprintf(f,"Non esistono cammini da %d a %d!\n",a,b);
     } 
@@ -503,8 +503,7 @@ void stampa_minpath(int a, int b, attore* gr, int grl, double eltime, ABRnode* d
 ABRnode* crea_abr(int c, int d, ABRnode* pred)
 {
   // allochiamo lo spazio per un nodo e restituiamo il puntatore la nodo creato
-  ABRnode* node = malloc(sizeof(ABRnode));
-  assert(node!=NULL);
+  ABRnode* node = xmalloc(sizeof(ABRnode),QUI);
   *node = (ABRnode){
     .codice = c,
     .depth = d,
@@ -576,7 +575,7 @@ void push(FIFO* q, int codice)
   // Se pieno, raddoppia la capacità
   if (q->size == q->cap) {
     int newcap = q->cap * 2;
-    int* newqueue = malloc(sizeof(int) * newcap);
+    int* newqueue = xmalloc(sizeof(int) * newcap,QUI);
 
     // Ricopia i dati in ordine corretto
     for (int i = 0; i < q->size; ++i) {

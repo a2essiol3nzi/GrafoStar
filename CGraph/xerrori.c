@@ -4,6 +4,18 @@
 // Sono le funzioni usate anche durante l'anno a lezione,
 // sono presenti ESCLUSIVAMENTE QUELLE USATE all'interno del progetto
 
+// operazioni di allocazione
+// malloc: verifico la corretta allocazione, se è andata a buon fine restituisco il puntatore
+void* xmalloc(size_t size, int linea, char* file)
+{
+  void* ptr = malloc(size);
+  if(ptr==NULL){  // errore nell'allocazione
+    perror("Errore allocazione malloc");
+    fprintf(stderr,"== %d == Linea: %d, File: %s\n",getpid(),linea,file);
+    exit(1);
+  }
+  return ptr;
+}
 
 // termina un processo con eventuale messaggio d'errore + linea e file
 void xtermina(const char *messaggio, int linea, char *file) {

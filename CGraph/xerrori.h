@@ -20,6 +20,8 @@
 #include <sys/times.h>
 
 
+// operazioni di allocazione
+void* xmalloc(size_t size, int linea, char* file);
 
 // termina programma
 void xtermina(const char *s, int linea, char *file); 

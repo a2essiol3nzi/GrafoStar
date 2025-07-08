@@ -127,7 +127,7 @@ int main(int argc, char** argv)
 
 
   // arrivati a questo punto vuol dire che i valori da leggere sono terminati, e la pipe è stata chiusa e distrutta (non piu presente in FS)
-  fprintf(stderr,"## Terminazione programma naturale, attendere prego... ##\n");
+  fprintf(stderr,"## Terminazione naturale del programma, attendere prego... ##\n");
   // in caso di terminazione naturale dobbiamo dire al thread gestore di terminare anche lui, gli inviamo di proposito un SIGINT 
   // per avvisarlo di terminare dato che il programma è giunto alla fine
   pthread_kill(thand,SIGINT);
