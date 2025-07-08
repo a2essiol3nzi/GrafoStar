@@ -231,7 +231,7 @@ Naturalmente il controllo va effettuato sui file che avete consegnato: il mio co
 
 ** Tempi medi:
 Java: ~2 min su lab2 (~1 su laptop)
-C (intera bfs): ~14 sec su lab2 (~9 su laptop)
+*C (intera bfs): ~14 sec su lab2 (~9 su laptop)
 
 
 * TODO IDEE:

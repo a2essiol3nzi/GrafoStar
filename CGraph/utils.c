@@ -371,10 +371,9 @@ void* breadth_first_search(void* args)
       // altrimenti nulla, continuo con la valutzione degli adiacenti
     }
   }
-  clock_t end = times(NULL);
   // se siamo qui abbiamo eseguito l'intera BFS, MA non abbiamo trovato un percorso da a a b (altrimenti ci saremmo fermati)
   // dobbiamo terminare stampando un esito negativo 
-  double eltime = elapsed_time(start,end);
+  double eltime = elapsed_time(start,times(NULL));
   stampa_minpath(dati->a,dati->b,eltime,NULL,0);
   // dealloco ABR e FIFO
   destroy_fifo(&raggiunti);
@@ -553,19 +552,6 @@ ABRnode* search_abr(ABRnode* root, int codice)
 }
 
 
-/*
-// serve "realloc", dobbiamo aggiornare head, tail, e cap
-    q->cap *= 2;
-    // eseguo "realloc" efficiente (in spazio)
-    attore** newq = malloc(q->cap * sizeof(attore*));
-    int size = q->tail - q->head;
-    for(int i=0;i<size;i++)
-      newq[i] = q->queue[i + q->head];
-    free(q->queue);
-    q->queue = newq;
-    q->tail = q->tail - q->head;
-    q->head = 0;
-*/
 
 
 
@@ -573,12 +559,13 @@ ABRnode* search_abr(ABRnode* root, int codice)
 // funzione di inserimento di un codice di attore in coda bfs
 void push(FIFO* q, attore* a) {
   assert(q != NULL);
-  // coda piena, ma c'è spazio in testa -> risitemiamo
-  if (q->tail == q->cap && q->head > 0) {
+  // coda piena, ma c'è spazio in testa -> risitemiamo 
+  if (q->tail == q->cap && q->head > 32) {  
+    // eseguiamo memmove se le possizione che ricaviamo sono unnumero decente, altrimenti si fa direttamente la realloc
     int size = q->tail - q->head;
-    // void *memmove(size_t n, void dest[n], const void src[n], size_t n):
+    // void *memmove(void dest[n], const void src[n], size_t n):
     // memmove sposta n bytes da src a dest, nel nostro caso lo usiamo per riutilizzare memoria
-    memmove(q->queue, q->queue + q->head, size * sizeof(attore*));
+    memmove(q->queue, q->queue + q->head, size * sizeof(attore*));  // non può fallire
     q->tail = size;
     q->head = 0;
   }
