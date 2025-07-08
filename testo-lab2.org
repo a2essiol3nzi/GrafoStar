@@ -201,7 +201,7 @@ All'interno del repository deve essere presente un file README.md contente la de
     - il dettaglio di come vengono ricostruiti i nodi intermedi del cammino minimo in cammini.c
     - il dettaglio di come il thread gestore di segnali comunica al programma principale di interrompere l'elaborazione
 
-NOTA: risitemare tutti e 4 i punti
+NOTA: manca il punto 2 che è in branching
 
 * File messi a disposizione:
 - I file name.basics.tsv (842Mb), title.principals.tsv (3.9 Gb), sono disponibili sulla macchina laboratorio2.di.unipi.it. Per fare i test del vostro programma su questa macchina NON copia sulla vostra home un'altra istanza di questi file (altrimenti esauriamo subito lo spazio disco), ma createvi dei link simbolici in una qualsiasi vostra directory scrivendo:

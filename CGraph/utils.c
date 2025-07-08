@@ -266,15 +266,8 @@ void* prod_body(void* args)
 void* handler_body(void* args)
 {
   assert(args!=NULL);
-  char buffer[25];
-  // Costruzione stringhe da stampare con write
-  // snprintf è la versione piu "sicura" di sprintf, tiene di conto della lunghezza del buffer evitando overflow in caso 
-  // la costruzione della stringa vada oltre i limiti (non accede a zone di memoria non adibite)
-  int len = snprintf(buffer,25,"Il mio PID: %d\n",getpid());
-  char messC[57] = "Costruzione del GRAFO DELLE STAR in corso, attendere...\n";
   // stampo il pid
-  int w = write(1,buffer,len);
-  if(w<0) xtermina("Errore write (syscall)",QUI);
+  printf("Il mio PID: %d\n",getpid());
   datisighand* dati = (datisighand* )args;
   // set di segnali da gestire
   sigset_t mask;
@@ -294,8 +287,7 @@ void* handler_body(void* args)
       break;
     } else {
       // se non ce la pipe si avvisa che si sta ancora costruendo il grafo
-      w = write(1,messC,sizeof(messC));
-      if(w<0) xtermina("Errore write (syscall)",QUI);
+      printf("COstruzione GRAFO DELLE STAR in corso, attendere...\n");
     }
   }
   return NULL;
