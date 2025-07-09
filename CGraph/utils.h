@@ -27,10 +27,10 @@ typedef struct {
 // struttura dati da passare al produttore per la lettura del file e inserimento nel buffer
 typedef struct {
   char** buff;        // buffer
-  int* ind;            // indice di isnerimento nel buffer
+  int* ind;           // indice di isnerimento nel buffer
   sem_t* s_full;      // semaforo per le locazioni piene nel buffer
   sem_t* s_empty;     // semaforo per le locazioni vuote nel buffer
-  FILE* file;        // file da cui leggere
+  FILE* file;         // file da cui leggere
 } datiprod;
 
 // struttura dati da passare al thread gestore dei segnali
@@ -43,14 +43,14 @@ typedef struct {
 typedef struct {
   int a;
   int b;        // interi letti dalla pipe
-  attore* gr;
-  int grl;
+  attore* gr;   // puntatore al grafo
+  int grl;      // lunghezza dell'array grafo
 } datiminpath;
 
 // struttura dati per i nodi dell'ABR
 typedef struct ABRnode {
   attore* att;              // puntatore all'attore associato
-  int codice;               // codice attore a cui è associato il nodo corrente
+  int shufc;                // codice attore shuffled
   struct ABRnode* pred;     // predecessore nel cammino dalla sorgente-> per ricostruire il cammino 
   struct ABRnode* sx;
   struct ABRnode* dx;       // figli destro e sinistro 
@@ -58,8 +58,8 @@ typedef struct ABRnode {
 
 // struttura dati per la gestione della coda fifo della bfs
 typedef struct {
-  attore** queue;    // coda fifo di attore* (se usassivo solo attore* con una realloc perderemmo tutte le copie)
-  int cap;          // capacità degli array per eseguire le realloc
+  attore** queue;   // coda fifo di attore*
+  int cap;          // capacità dell' array per eseguire le realloc
   int head;         // indice di estrazione
   int tail;         // indice di inserimento
 } FIFO;
@@ -129,10 +129,10 @@ ABRnode* crea_abr(attore* a, ABRnode* pred);
 
 // funzione di inserimento nodo in ABR (basata su shuffle)
 // *root NON VA BENE perche non modificherei davvero i valori di root->sx e root->dx (modifiche solo locali)
-int insert_abr(ABRnode **root, ABRnode *node);
+void insert_abr(ABRnode **root, ABRnode *node);
 
 // funzione di ricerca in ABR (basata su shuffle)
-ABRnode* search_abr(ABRnode* root, int codice);
+ABRnode* search_abr(ABRnode* root, int sc);
 
 
 

@@ -345,30 +345,31 @@ void* breadth_first_search(void* args)
     // estraggo la testa dalla fifo
     attore* est = pop(&raggiunti);
     assert(est!=NULL);
-    ABRnode* est_abr = search_abr(visitati,est->codice);
+    ABRnode* est_abr = search_abr(visitati,shuffle(est->codice));
     assert(est_abr!=NULL);
-    // aggiungo gli adiacenti e controllo l'arrivo
+    // verifico se si tratta di un nuovo nodo, in caso faccio le dovute operazioni
     for(int i=0;i<est->numcop;i++){
-      // si ricava l'attore
+      // gia visitato non perdiamo altro tempo
+      if(search_abr(visitati,shuffle(est->cop[i]))!=NULL) 
+        continue;
+      // altrimenti si ricava l'attore e si aggiornano le strutture
       attore* adj = bsearch(&est->cop[i],dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
       assert(adj!=NULL);
       ABRnode* adj_abr = crea_abr(adj,est_abr);
       // tento l'inserimento
-      if(insert_abr(&visitati,adj_abr)){
-        // nuovo nodo, verifico fine
-        if(adj->codice == dati->b){
-          // ho la mia destinazione posso terminare stampando e deallocando
-          double eltime = elapsed_time(start,times(NULL));
-          stampa_minpath(dati->a,dati->b,eltime,adj_abr,1);
-          destroy_abr(visitati);
-          destroy_fifo(&raggiunti);
-          free(dati);
-          return NULL;
-        }
-        // altrimenti aggiungo alla fifo
-        push(&raggiunti,adj);
+      insert_abr(&visitati,adj_abr);
+      // nuovo nodo, verifico fine
+      if(adj->codice == dati->b){
+        // ho la mia destinazione posso terminare stampando e deallocando
+        double eltime = elapsed_time(start,times(NULL));
+        stampa_minpath(dati->a,dati->b,eltime,adj_abr,1);
+        destroy_abr(visitati);
+        destroy_fifo(&raggiunti);
+        free(dati);
+        return NULL;
       }
-      // altrimenti nulla, continuo con la valutzione degli adiacenti
+      // altrimenti aggiungo alla fifo
+      push(&raggiunti,adj);
     }
   }
   // se siamo qui abbiamo eseguito l'intera BFS, MA non abbiamo trovato un percorso da a a b (altrimenti ci saremmo fermati)
@@ -501,7 +502,7 @@ ABRnode* crea_abr(attore* a, ABRnode* pred)
   ABRnode* node = xmalloc(sizeof(ABRnode),QUI);
   *node = (ABRnode){
     .att = a,
-    .codice = a->codice,
+    .shufc = shuffle(a->codice),
     .pred = pred,
     .sx = NULL,
     .dx = NULL
@@ -511,23 +512,21 @@ ABRnode* crea_abr(attore* a, ABRnode* pred)
 
 // funzione di inserimento nodo in ABR
 // *root NON VA BENE perche non modificherei davvero i valori di root->sx e root->dx (modifiche solo locali)
-int insert_abr(ABRnode **root, ABRnode *node) 
+void insert_abr(ABRnode **root, ABRnode *node) 
 {
   assert(node != NULL);
   if (*root == NULL) {
     *root = node;  // si inserisce il nodo
-    return 1;      // inserito con successo
+    return ;      // inserito con successo
   }
-  if ((*root)->codice == node->codice) {
+  if ((*root)->shufc == node->shufc) {
     free(node);    // nodo già presente, lo scartiamo
-    return 0;      // non inserito
+    return ;      // non inserito
   }
   // inserimento nei sotto alberi
   // per il confronto e criterio di ordinamento si usa la funzione shuffle che bilancia un po l'albero
-  int src = shuffle((*root)->codice);
-  int snc = shuffle(node->codice);
   // per non salvare la differenza (problematica se restituisce valori grandi) si fa prima un confronto 
-  int diff = (src > snc) - (src < snc);  // == 1,0,-1
+  int diff = ((*root)->shufc > node->shufc) - ((*root)->shufc < node->shufc);  // == 1,0,-1
   if (diff > 0) { //== 1-> rc>nc
     return insert_abr(&(*root)->sx, node);  // vai a sinistra
   } else {  // == 0/-1-> rc<=nc
@@ -535,19 +534,17 @@ int insert_abr(ABRnode **root, ABRnode *node)
   }
 }
 
-// funzione di ricerca in ABR
-ABRnode* search_abr(ABRnode* root, int codice)
+// funzione di ricerca in ABR (basata su shuf)
+ABRnode* search_abr(ABRnode* root, int sc)
 {
   if(root==NULL) return NULL;
-  else if(root->codice == codice) return root;
+  else if(root->shufc == sc) return root;
   else{
-    int src = shuffle(root->codice);
-    int sc = shuffle(codice);
-    int diff = (src > sc) - (src < sc);
-    if(diff==1) // src > sc
-      return search_abr(root->sx,codice);
-    else // src <= sc
-      return search_abr(root->dx,codice);
+    int diff = (root->shufc > sc) - (root->shufc < sc);
+    if(diff==1) // rc > sc
+      return search_abr(root->sx,sc);
+    else // rc <= sc
+      return search_abr(root->dx,sc);
   }
 }
 
@@ -557,23 +554,25 @@ ABRnode* search_abr(ABRnode* root, int codice)
 
 // ----- funzioni Array FIFO
 // funzione di inserimento di un codice di attore in coda bfs
-void push(FIFO* q, attore* a) {
+void push(FIFO* q, attore* a) 
+{
   assert(q != NULL);
   // coda piena, ma c'è spazio in testa -> risitemiamo 
-  if (q->tail == q->cap && q->head > 32) {  
-    // eseguiamo memmove se le possizione che ricaviamo sono unnumero decente, altrimenti si fa direttamente la realloc
-    int size = q->tail - q->head;
-    // void *memmove(void dest[n], const void src[n], size_t n):
-    // memmove sposta n bytes da src a dest, nel nostro caso lo usiamo per riutilizzare memoria
-    memmove(q->queue, q->queue + q->head, size * sizeof(attore*));  // non può fallire
-    q->tail = size;
-    q->head = 0;
-  }
-  // coda piena, niente spazio -> raddoppiamo
   if (q->tail == q->cap) {
-    q->cap *= 2;
-    q->queue = realloc(q->queue, q->cap * sizeof(attore*));
-    if (!q->queue) xtermina("Errore realloc FIFO", QUI);
+    if(q->head > 32){
+      // eseguiamo memmove se le possizione che ricaviamo sono un numero decente, altrimenti si fa direttamente la realloc
+      int size = q->tail - q->head;
+      // void *memmove(void dest[n], const void src[n], size_t n):
+      // memmove sposta n bytes da src a dest, nel nostro caso lo usiamo per riutilizzare memoria
+      memmove(q->queue, q->queue + q->head, size * sizeof(attore*));  // non può fallire
+      q->tail = size;
+      q->head = 0;
+    } else {
+      // altrimenti classica realloc
+      q->cap *= 2;
+      q->queue = realloc(q->queue, q->cap * sizeof(attore*));
+      if (!q->queue) xtermina("Errore realloc FIFO", QUI);
+    } 
   }
   // Inserimento classico
   q->queue[q->tail++] = a;
