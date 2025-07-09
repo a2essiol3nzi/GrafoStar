@@ -17,6 +17,18 @@ void* xmalloc(size_t size, int linea, char* file)
   return ptr;
 }
 
+// realloc: controlli preliminari er la correttezza
+void* xrealloc(void* ptr, size_t size, int linea, char* file)
+{
+  void* newptr = realloc(ptr,size);
+  if (newptr == NULL) {
+    perror("Errore realloc");
+    fprintf(stderr, "== %d == Linea: %d, File: %s\n", getpid(), linea, file);
+    exit(1);
+  }
+  return newptr;
+}
+
 // termina un processo con eventuale messaggio d'errore + linea e file
 void xtermina(const char *messaggio, int linea, char *file) {
   if(errno==0)  fprintf(stderr,"== %d == %s\n",getpid(), messaggio);

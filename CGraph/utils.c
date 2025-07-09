@@ -28,8 +28,7 @@ attore* init_gr(FILE* fn, int* len)
     // prima di inserire l'attore verifico se è necessaria una realloc
     if(*len==capacita){
       capacita *= 2;
-      gr = realloc(gr, capacita*sizeof(attore));
-      if(gr==NULL) xtermina("Errore realloc",QUI);
+      gr = xrealloc(gr, capacita*sizeof(attore),QUI);
     }
     // inizializzo l'attore (codice nome anno)
     gr[*len] = (attore){
@@ -42,7 +41,7 @@ attore* init_gr(FILE* fn, int* len)
   }
   assert(*len<=capacita);
   // evito spreco di memoria e rialloco il grafo ora che ne conosco il numero di nodi
-  gr = realloc(gr,(*len) * sizeof(attore));
+  gr = xrealloc(gr,(*len) * sizeof(attore),QUI);
   // dealloco il buffer di getline
   free(buffer);
   return gr;
@@ -464,7 +463,7 @@ void stampa_minpath(int a, int b, double eltime, ABRnode* dest, int ctrl)
     while(dest!=NULL){
       if(len==cap){
         cap += 10;
-        cammino = realloc(cammino,cap * sizeof(attore));
+        cammino = xrealloc(cammino,cap * sizeof(attore),QUI);
       }
       cammino[len++] = *dest->att;
       dest = dest->pred;
@@ -570,8 +569,7 @@ void push(FIFO* q, attore* a)
     } else {
       // altrimenti classica realloc
       q->cap *= 2;
-      q->queue = realloc(q->queue, q->cap * sizeof(attore*));
-      if (!q->queue) xtermina("Errore realloc FIFO", QUI);
+      q->queue = xrealloc(q->queue, q->cap * sizeof(attore*),QUI);
     } 
   }
   // Inserimento classico

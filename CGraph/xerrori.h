@@ -22,6 +22,7 @@
 
 // operazioni di allocazione
 void* xmalloc(size_t size, int linea, char* file);
+void* xrealloc(void* ptr, size_t size, int linea, char* file);
 
 // termina programma
 void xtermina(const char *s, int linea, char *file); 

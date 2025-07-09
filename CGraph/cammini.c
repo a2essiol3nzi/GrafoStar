@@ -10,10 +10,10 @@ int main(int argc, char** argv)
   //    cammini.out filenomi filegrafo numconsumatori
 
   // verifico validità argomenti passati
-  if(argc!=4) xtermina("Uso: \tcammini.out filenomi filegrafo numconsumatori",QUI);
+  if(argc!=4) xtermina("Uso:\tcammini.out filenomi filegrafo numconsumatori",QUI);
   
   int ncons = atoi(argv[3]);
-  if(ncons<=0) xtermina("ATT: \tnumconsumatori deve essere strettamente positivo!",QUI);
+  if(ncons<=0) xtermina("ATT:\tnumconsumatori deve essere strettamente positivo!",QUI);
 
 
 
