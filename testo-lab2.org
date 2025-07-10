@@ -197,7 +197,7 @@ Nel repository dovete mettere solamente i file veramente essenziali per la compi
 All'interno del repository deve essere presente un file README.md contente la descrizione dei seguenti punti:
 
     - il dettaglio di come avviene il parsing delle righe del file di testo name.basics.tsv nel programma Java
-    + il dettaglio dell'implementazione della coda FIFO nell'algoritmo BFS, e quali informazioni vengono memorizzate in ogni elemento della coda
+    - il dettaglio dell'implementazione della coda FIFO nell'algoritmo BFS, e quali informazioni vengono memorizzate in ogni elemento della coda
     - il dettaglio di come vengono ricostruiti i nodi intermedi del cammino minimo in cammini.c
     - il dettaglio di come il thread gestore di segnali comunica al programma principale di interrompere l'elaborazione
 

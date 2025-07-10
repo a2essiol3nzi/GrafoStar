@@ -11,6 +11,7 @@ attore* init_gr(FILE* fn, int* len)
   // allocazione spazio grafo
   // dim iniziale settata a 1024 attori
   int capacita = 1024;
+  // xmalloc funzione apposita definita munita di controlli sul successo (xerrori.*)
   attore* gr = xmalloc(capacita*sizeof(attore),QUI);
   // var per lettura file
   int codice, anno;
@@ -28,6 +29,7 @@ attore* init_gr(FILE* fn, int* len)
     // prima di inserire l'attore verifico se è necessaria una realloc
     if(*len==capacita){
       capacita *= 2;
+      // xrealloc -> xerrori*
       gr = xrealloc(gr, capacita*sizeof(attore),QUI);
     }
     // inizializzo l'attore (codice nome anno)
@@ -63,16 +65,17 @@ void complete_gr(int numcons, attore* grafo, int grl, FILE* fg)
   char* buffer[Buff_size];
   // indice di estrazione(usato da TUTTI i thread consumatori che verranno creati) inizialmente a 0 (uguale per quello di inserimento)
   int cindex = 0; int pindex = 0;
-  pthread_mutex_t mcons = PTHREAD_MUTEX_INITIALIZER;  // mutex per consumatori
-  sem_t s_empty;                                      // semaforo per il conteggio dei posti vuoti nel buffer
-  sem_t s_full;                                       // semaforo per il conteggio dei posti pieni nel buffer
+  pthread_mutex_t mcons; 
+  xpthread_mutex_init(&mcons,NULL,QUI);      // mutex per consumatori
+  sem_t s_empty;                             // semaforo per il conteggio dei posti vuoti nel buffer
+  sem_t s_full;                              // semaforo per il conteggio dei posti pieni nel buffer
   // xsem_init() (xerrori.*) è un'altra funzione che gestisce l'inizializazione di un semaforo (non nominativo) ed esegue i dovuti controlli
   // ne abbiamo anche per le funzoni da usare sui semafori xsem_post/_wait
   xsem_init(&s_empty,0,Buff_size,QUI);
   xsem_init(&s_full,0,0,QUI);
   // inizializzo l'array di thread consumatori, e dei dati da passare ad ognuno e
-  // si avviano i consumatori con la relativa funzione XXXX definita in utils.*
-    // i tipi dei dati da passare a prd e cons sono entrambe definite in utils.h
+  // si avviano i consumatori con la relativa funzione cons_body definita in utils.*
+    // i tipi dei dati da passare a prod e cons sono entrambe definite in utils.h
   // consumatori
   pthread_t tc[numcons];
   daticons dc[numcons];
@@ -125,8 +128,7 @@ void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pt
   // che considera i due valori come codici di due attori a b, e calcola il cammino minimo da a a b.
   // la condizione del while verifica l'arrivo di un segnale di sigint che (in questa fase del programma) deve terminare l'esecuzione 
   while(!(*term)){
-    // leggiamo dalla pipe due interi, il primo si legge e controlliamo che non sia stata chiusa la pipe, il secondo abbiamo la sicurezza 
-    // di trovarlo (per come vengono passati gli interi dalla pipe)
+    // leggiamo dalla pipe due interi dalla pipe, verificando che non si tratti del valore di chiusura pipe
     // si usa malloc perhce altrimenti al di fuori del blocco la struct viene deallocata!
     datiminpath* dth = xmalloc(sizeof(datiminpath),QUI);
     int32_t a,b;
@@ -137,10 +139,10 @@ void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pt
       break;
     }
     if(n<4) // errore di passaggio valori o errore di lettura
-      xtermina("Errore lettura da pipe",QUI);
+      xtermina("Errore lettura/passaggio valori da pipe",QUI);
     n = read(fd,&b,4);
     if(n<4) // errore di passaggio valori o errore di lettura
-      xtermina("Errore lettura da pipe",QUI);
+      xtermina("Errore lettura/passaggio valori da pipe",QUI);
     // finiamo di riempire la struct da passare al thread che dovrà calcolare il cammino minimo tra i due interi letti
     *dth = (datiminpath){
       .a = a,
@@ -148,7 +150,7 @@ void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pt
       .gr = gr,
       .grl = grl
     };
-    // creazione e avvio del thread dedicato al calcolo, QUESTO (come tutti gli altri thread di questo tipo dovranno essere resi detach)
+    // creazione e avvio del thread dedicato al calcolo, QUESTO (come tutti gli altri thread di questo tipo) dovrà essere resi detach
     pthread_t tminp;
     fprintf(stderr,"@ Avvio calcolo cammino tra %d %d\n",dth->a,dth->b);
     xpthread_create(&tminp,NULL,breadth_first_search,dth,QUI);
@@ -156,17 +158,18 @@ void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pt
     // quando avviati restituiranno le risorse autonomamente senza il bisongo della join
     xpthread_detach(tminp,QUI);
   }
+  // thread gestore sarà gia terminato, chiudo la pipe
+  xclose(fd,QUI);
+  fprintf(stderr,"--- Chiusura lettura dalla pipe ---\n");
+  // devo distruggere la pipe
+  int e = unlink("./cammini.pipe");
+  if(e!=0) xtermina("Errore distruzione pipe",QUI);
   // verifichiamo se il thread gestore ci avvisa del segnale di SIGINT
   if(*term){
     fprintf(stderr,"## Terminazione INnaturale del programma, attendere prego... ##\n");
-    // thread gestore sarà gia terminato, chiudo la pipe
-    xclose(fd,QUI);
-    fprintf(stderr,"--- Chiusura lettura dalla pipe ---\n");
-    // devo distruggere la pipe
-    unlink("./cammini.pipe");
     // dealloco
     destruction(gr,grl,thand);
-    // esco con exitcode di fallimento
+    // esco con exitcode!=0
     exit(EXIT_FAILURE);
   }
   return ;
@@ -177,7 +180,7 @@ void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pt
 
 
 // ----- funnzioni per thread
-// funzione dei consumatori per la lettura dal buffer + parsing di una linea + aggiornamento degli attori letti -> da passare alla pthread_create
+// funzione dei consumatori per la lettura dal buffer + parsing di una linea + aggiornamento degli attori letti
 void* cons_body(void* args)
 {
   assert(args!=NULL);
@@ -212,7 +215,7 @@ void* cons_body(void* args)
     int att_cod = atoi(strtok_r(line,"\t",&saveptr));
     int numcop = atoi(strtok_r(NULL,"\t",&saveptr));
     int* cop = NULL;
-    // verifico che l'attore abbia collaboratori, e in caso alloco dello spazio per i coll
+    // verifico che l'attore abbia collaboratori, e in caso alloco dello spazio per i cop
     if(numcop>0){
       cop = xmalloc(numcop * sizeof(int),QUI);
       for(int i=0;i<numcop;i++)
@@ -222,8 +225,7 @@ void* cons_body(void* args)
     free(line);
     // AGGIORNO ATTORE prima però devo cercarlo in grafo (dati->gr) tramite bsearch(3): 
     // bsearch cerca un certo elemento in un array gia ordinato e in caso di match tra elementi viene restituito un puntatore all'elem.
-    // come funzione di confronto usiamo una funz che confronta l'int (attcode) con il codice di un attore nel grafo, un'alternativa era 
-    // di definire una funzione che confronta due attori e creare un istanza temopranea con att_code.
+    // come funzione di confronto usiamo una funz che confronta l'int (attcode) con il codice di un attore nel grafo
     attore* a = bsearch(&att_cod,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
     assert(a!=NULL);
     a->numcop = numcop;
@@ -240,8 +242,8 @@ void* prod_body(void* args)
   assert(args!=NULL);
   datiprod* dati = (datiprod* )args;
   // creo variabili per l'esecuzione della getline()
-  char* line = NULL; // buffer usato e gestito automaticamente dalla getline in caso di necessità
-  size_t n = 0; // intero rappresentante la grandezza in Byte del buffer allocato (confrotato con la lunghezza della riga letta per decidere se si ha bisogno di piu spazio)
+  char* line = NULL;
+  size_t n = 0; 
 
   // avviamo la lettura del file e inserimento nel buffer
   while((getline(&line,&n,dati->file))>0){
@@ -293,9 +295,6 @@ void* handler_body(void* args)
 }
 
 // funzione che implementa la BFS per il calolo dei cammini minimi fra attori (se esistono)
-// probabilmente sarebbe stato piu consono implementare l'algo (da "INIZIO ALGORITMO" in poi) in una funzione separata,
-// ma trattandosi comunque di una versione dedicata alla singola ricerca dei cammini in cui non sempre si esegue l'intera visita
-// ho preferito fare tutto qui, dedicando però una funzione a parte per la stampa e ricostruzione del cammino
 // NOTA: controllo se sono arrivato alla destinazione al momento dell'inserimento nella coda (risparmio molte iterazioni rispetto a controllarlo all'estrazione)
 void* breadth_first_search(void* args)
 {
@@ -326,6 +325,7 @@ void* breadth_first_search(void* args)
     double eltime = elapsed_time(start,times(NULL));
     stampa_minpath(dati->a,dati->b,eltime,visitati,1);
     // dealloco l'unico nodo ABR senza FIFO
+    destroy_abr(visitati);
     free(dati);
     return NULL;
   }
@@ -346,7 +346,7 @@ void* breadth_first_search(void* args)
     assert(est!=NULL);
     ABRnode* est_abr = search_abr(visitati,shuffle(est->codice));
     assert(est_abr!=NULL);
-    // verifico se si tratta di un nuovo nodo, in caso faccio le dovute operazioni
+    // inserisco gli adiacenti
     for(int i=0;i<est->numcop;i++){
       // gia visitato non perdiamo altro tempo
       if(search_abr(visitati,shuffle(est->cop[i]))!=NULL) 
@@ -451,14 +451,14 @@ double elapsed_time(clock_t a, clock_t b)
 void stampa_minpath(int a, int b, double eltime, ABRnode* dest, int ctrl)
 {
   // creo nome file
-  char buff[64]; // piu che sufficiente
+  char buff[64]; // piu che sufficiente per il nome del file 
   snprintf(buff,sizeof(buff),"%d.%d",a,b);
   // devo stampare sul file dedicato e su stdout
   FILE* f = xfopen(buff,"w",QUI);
   if(ctrl==1){  // esito positivo
     // per la stampa mi appoggio ad un array di costruzione per il cammino in cui inserisco i vari codici (al rovescio== dalla dest) e poi li rileggo 
-    // dalla sorgente (array dinamico con cui costruisco anche depth da stampare)
-    int len = 0, cap = 64;
+    // dalla sorgente (array dinamico con cui costruisco anche length path da stampare)
+    int len = 0, cap = 32;
     attore* cammino = xmalloc(cap * sizeof(attore),QUI);
     while(dest!=NULL){
       if(len==cap){
@@ -563,7 +563,7 @@ void push(FIFO* q, attore* a)
       int size = q->tail - q->head;
       // void *memmove(void dest[n], const void src[n], size_t n):
       // memmove sposta n bytes da src a dest, nel nostro caso lo usiamo per riutilizzare memoria
-      memmove(q->queue, q->queue + q->head, size * sizeof(attore*));  // non può fallire
+      memmove(q->queue, q->queue + q->head, size * sizeof(attore*));  // non può fallire (operazione di basso livello)
       q->tail = size;
       q->head = 0;
     } else {

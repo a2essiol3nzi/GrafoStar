@@ -1,4 +1,4 @@
-#include "xerrori.h"  // sono file con funzioni di gestione errori-> funzioni usate durante il corso
+#include "xerrori.h"  // sono file con funzioni di gestione errori
 #include "utils.h"    // sono funzioni generiche implementate per il progetto-> divise dal main e da xerrori.* per chiarezza e semplicità
 
 
@@ -26,15 +26,12 @@ int main(int argc, char** argv)
     durante la lettura dalla pipe.
 
     NOTA: in caso di temrinazione "naturale" del programma, dobbiamo notificare il thread gestore di terminare per essere joinato
-    perciò in  quel caso il mian invierà un SIGINT al thread gestore dopo aver settato termina gia ad 1
+    perciò in  quel caso il mian invierà un SIGINT al thread gestore
   */
-  // variabile atomica di stato, necessita di essere atomica (essere acceduta con un metodo) perche prima o poi verra modificata
+  // variabile atomica di stato, necessita di essere atomica poiché condivisa tra main thread e gestore
   // dobbiamo quindi evitare race-cond di lettura su scrittura
   volatile sig_atomic_t pipe_state = 0;
   volatile sig_atomic_t term = 0;
-  // inizializzazione grafo e passagio riferimenti al thread gestore per la deallocazione finale
-  attore* grafo = NULL;
-  int grl = 0;
   // blocco SIGINT cosi da poterlo gestire come specificato nel testo
   sigset_t mask;
   sigemptyset(&mask);
@@ -62,9 +59,10 @@ int main(int argc, char** argv)
   // si usa la xfopen, esegue la classica funzione fopen (apertura file) ma esegue anche il controllo sul successo dell'operazione (xerrori.*)
   // stampando un messaggio di errore e terminando con exitcode!=0 in caso di insuccesso
   FILE* fn = xfopen(argv[1],"r",QUI);
-  // inizializzazione dell'array di attori per la rappresentazione del grafo, e del suo indice di lunghezza. Uso la funzione init_gr() definita appositamente
-  // file utils.*
-  grafo = init_gr(fn,&grl);
+  // inizializzazione dell'array di attori per la rappresentazione del grafo, e del suo indice di lunghezza (file utils.*)
+  // inizializzazione grafo e passagio riferimenti al thread gestore 
+  int grl = 0;
+  attore* grafo = init_gr(fn,&grl);
   assert(grafo!=NULL);
   //chiudo file finito di leggere
   if(fclose(fn)==EOF) xtermina("Errore chiusura filenomi",QUI);
@@ -81,16 +79,16 @@ int main(int argc, char** argv)
     2. viene fatto il parsing delle righe leggendo inizialmente i primi due valori (sempre presenti), e poi tokenizzando i restanti n (specificati nel 2o campo)
     3. assegno i valori trovati ai campi degli attori in grafo per definire completamente IL GRAFO DELLE STAR
 
-    Ogni thread deve leggere dal buffer CONDIVISO (serve sincro), ricavare i dati da assegnare ad un certo attore AL QUALE NESSUN ALTRO THREAD 
+    Ogni thread deve leggere dal buffer CONDIVISO (serve sincronizzazione), ricavare i dati da assegnare ad un certo attore AL QUALE NESSUN ALTRO THREAD 
     ACCEDERÀ -> i thread potranno accedere contemporaneamente all'array grafo, perche :
-    Non c'è concorrenza di scrittura: ogni oggetto è scritto solo da un thread.
-    Non c'è concorrenza lettura/scrittura: codice viene solo letto, e mai modificato.
+    Non c'è concorrenza di scrittura: ogni oggetto di grafo è scritto solo da un thread.
+    Non c'è concorrenza lettura/scrittura: codice viene solo letto, e mai modificato (non si modificano dati letti da altri thread durante la ricerca)
     -> non vi è race condition sui dati in grafo
   */
   // apro il 2o file
   FILE* fg = xfopen(argv[2],"r",QUI);
   // avvio il paradigma prod-cons
-  complete_gr(atoi(argv[3]),grafo,grl,fg);
+  complete_gr(ncons,grafo,grl,fg);
   // dopodiché posso richiudere il file aperto
   if(fclose(fg)==EOF) xtermina("Errore chiusura filegrafo\n",QUI);
 
@@ -119,16 +117,12 @@ int main(int argc, char** argv)
   // inizio il ciclo di lettura di coppie di int32 (utils.*), è importante che la funzione abbia anche gli argomenti necessari per 
   // chiamare la funzione di terminazione destruction (utils.*)
   minpath_finder(fd,&term,grafo,grl,&thand);
-  fprintf(stderr,"--- Chiusura lettura dalla pipe ---\n");
-  // chiusura e distruzione pipe
-  xclose(fd,QUI);
-  unlink("./cammini.pipe");
 
 
 
   // arrivati a questo punto vuol dire che i valori da leggere sono terminati, e la pipe è stata chiusa e distrutta (non piu presente in FS)
   fprintf(stderr,"## Terminazione naturale del programma, attendere prego... ##\n");
-  // in caso di terminazione naturale dobbiamo dire al thread gestore di terminare anche lui, gli inviamo di proposito un SIGINT 
+  // in al caso di terminazione naturale dobbiamo dire thread gestore di terminare anche lui, gli inviamo di proposito un SIGINT 
   // per avvisarlo di terminare dato che il programma è giunto alla fine
   pthread_kill(thand,SIGINT);
   destruction(grafo,grl,&thand);
