@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <stdatomic.h>
 
 
 // ----- funzioni d'uso generico
@@ -122,12 +123,12 @@ void complete_gr(int numcons, attore* grafo, int grl, FILE* fg)
 }
 
 // funnzione per gestione della fase di lettura dalla pipe + avvio dei thread per il calcolo dei cammini minimi
-void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pthread_t* thand)
+void minpath_finder(int fd, atomic_int* term, attore* gr, int grl, pthread_t* thand)
 {
   // avviamo un ciclo di lettura dalla pipe in cui per ogni coppia di interi a 32 bit che leggiamo, associamo un thread
   // che considera i due valori come codici di due attori a b, e calcola il cammino minimo da a a b.
   // la condizione del while verifica l'arrivo di un segnale di sigint che (in questa fase del programma) deve terminare l'esecuzione 
-  while(!(*term)){
+  while(!(atomic_load(term))){
     // leggiamo dalla pipe due interi dalla pipe, verificando che non si tratti del valore di chiusura pipe
     // si usa malloc perhce altrimenti al di fuori del blocco la struct viene deallocata!
     datiminpath* dth = xmalloc(sizeof(datiminpath),QUI);
@@ -165,7 +166,7 @@ void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pt
   int e = unlink("./cammini.pipe");
   if(e!=0) xtermina("Errore distruzione pipe",QUI);
   // verifichiamo se il thread gestore ci avvisa del segnale di SIGINT
-  if(*term){
+  if(atomic_load(term)){
     fprintf(stderr,"## Terminazione INnaturale del programma, attendere prego... ##\n");
     // dealloco
     destruction(gr,grl,thand);
@@ -281,10 +282,10 @@ void* handler_body(void* args)
     e = sigwait(&mask,&s);
     if(e!=0) xtermina("Errore sigwait",QUI);
     // ricevuto SIGINT correttamente
-    if(*dati->pipe){
+    if(atomic_load(dati->pipe)){
       // se ce la pipe il thread gestore deve settare la var termina (per far terminare il main se non lo sta gia facendo "naturalmente")
       // e poi terminare a sua volta per essere joinato
-      *dati->term = 1;
+      atomic_store(dati->term, 1);
       break;
     } else {
       // se non ce la pipe si avvisa che si sta ancora costruendo il grafo

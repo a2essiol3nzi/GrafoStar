@@ -1,5 +1,6 @@
 #include "xerrori.h"  // sono file con funzioni di gestione errori
 #include "utils.h"    // sono funzioni generiche implementate per il progetto-> divise dal main e da xerrori.* per chiarezza e semplicità
+#include <stdatomic.h>
 
 
 
@@ -30,8 +31,8 @@ int main(int argc, char** argv)
   */
   // variabile atomica di stato, necessita di essere atomica poiché condivisa tra main thread e gestore
   // dobbiamo quindi evitare race-cond di lettura su scrittura
-  volatile sig_atomic_t pipe_state = 0;
-  volatile sig_atomic_t term = 0;
+  atomic_int pipe_state = ATOMIC_VAR_INIT(0);
+  atomic_int term = ATOMIC_VAR_INIT(0);
   // blocco SIGINT cosi da poterlo gestire come specificato nel testo
   sigset_t mask;
   sigemptyset(&mask);
@@ -113,8 +114,8 @@ int main(int argc, char** argv)
   int fd = open("./cammini.pipe",O_RDONLY);
   if(fd<0) xtermina("Errore apertura pipe (lettura)",QUI);
   // aggiorno lo stato della pipe, da ora in poi il programma può terminare
-  pipe_state = 1;
-  // inizio il ciclo di lettura di coppie di int32 (utils.*), è importante che la funzione abbia anche gli argomenti necessari per 
+  atomic_store(&pipe_state, 1);
+  // inizio il ciclo di lettura di coppie di int32 (utils.*), è importante che la funzione abbia anche gli argomenti necessari per
   // chiamare la funzione di terminazione destruction (utils.*)
   minpath_finder(fd,&term,grafo,grl,&thand);
 

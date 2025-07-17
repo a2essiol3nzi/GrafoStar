@@ -35,8 +35,8 @@ typedef struct {
 
 // struttura dati da passare al thread gestore dei segnali
 typedef struct {
-  volatile sig_atomic_t* pipe;  // stato della cammini.pipe
-  volatile sig_atomic_t* term;  // variabile di terminazione (post-pipe)
+  atomic_int* pipe;  // stato della cammini.pipe
+  atomic_int* term;  // variabile di terminazione (post-pipe)
 } datisighand;
 
 // struttura dati da passare ai thread che calcolano i cammini minimi tra attori
@@ -78,7 +78,7 @@ attore* init_gr(FILE* fn, int* len) ;
 void complete_gr(int numcons, attore* grafo, int grl, FILE* fg);
 
 // funzione per gestione della fase di lettura dalla pipe + avvio dei thread per il calcolo dei cammini minimi
-void minpath_finder(int fd, volatile sig_atomic_t* term, attore* gr, int grl, pthread_t* thand);
+void minpath_finder(int fd, atomic_int* term, attore* gr, int grl, pthread_t* thand);
 
 
 
