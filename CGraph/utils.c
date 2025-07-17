@@ -226,7 +226,7 @@ void* cons_body(void* args)
     // AGGIORNO ATTORE prima però devo cercarlo in grafo (dati->gr) tramite bsearch(3): 
     // bsearch cerca un certo elemento in un array gia ordinato e in caso di match tra elementi viene restituito un puntatore all'elem.
     // come funzione di confronto usiamo una funz che confronta l'int (attcode) con il codice di un attore nel grafo
-    attore* a = bsearch(&att_cod,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
+    attore* a = bsearch(&att_cod,dati->gr,dati->grl,sizeof(attore),cmp_intatt);
     assert(a!=NULL);
     a->numcop = numcop;
     a->cop = cop;
@@ -303,8 +303,8 @@ void* breadth_first_search(void* args)
   // inizio la misurazione del tempo (#tick del ciclo di clock) per misurare la durata della funzione
   clock_t start = times(NULL);
   // verifico che i codici siano validi (evito di eseguire intere bfs per nodi non presenti)
-  attore* s = bsearch(&dati->a,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
-  attore* d = bsearch(&dati->b,dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
+  attore* s = bsearch(&dati->a,dati->gr,dati->grl,sizeof(attore),cmp_intatt);
+  attore* d = bsearch(&dati->b,dati->gr,dati->grl,sizeof(attore),cmp_intatt);
   if(s==NULL || d==NULL){
     // dobbiamo rileggere times per vedere quanti cicli sono passati, scrivere nel file e su stdout l'esito (negativo) della computazione e poi terminare
     double eltime = elapsed_time(start,times(NULL));
@@ -352,7 +352,7 @@ void* breadth_first_search(void* args)
       if(search_abr(visitati,shuffle(est->cop[i]))!=NULL) 
         continue;
       // altrimenti si ricava l'attore e si aggiornano le strutture
-      attore* adj = bsearch(&est->cop[i],dati->gr,dati->grl,sizeof(attore),(__compar_fn_t) &(cmp_intatt));
+      attore* adj = bsearch(&est->cop[i],dati->gr,dati->grl,sizeof(attore),cmp_intatt);
       assert(adj!=NULL);
       ABRnode* adj_abr = crea_abr(adj,est_abr);
       // tento l'inserimento
@@ -425,9 +425,11 @@ void destroy_fifo(FIFO* q)
 
 // ----- funzioni "minori"
 // funzione per il confronto tra due interi
-int cmp_intatt(const int *x, const attore *y)
+int cmp_intatt(const void *x, const void *y)
 {
-  return (*x > y->codice) - (*x < y->codice);  // ritorna 1, 0 o -1
+  int *a = (int*) x;
+  attore *b = (attore*) y;
+  return (*a > b->codice) - (*a < b->codice);  // ritorna 1, 0 o -1
 }
 
 // funzioni (fornite dal professore) per inserimento/ricerca efficiente all'interno degli ABR degli attori visitati

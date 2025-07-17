@@ -109,7 +109,7 @@ void destroy_fifo(FIFO* q);
 
 
 // ----- funzioni "minori"
-int cmp_intatt(const int *x, const attore *y);
+int cmp_intatt(const void *x, const void *y);
 
 int shuffle(int n);
 int unshuffle(int n);
