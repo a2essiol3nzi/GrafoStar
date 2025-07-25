@@ -192,18 +192,13 @@ void* cons_body(void* args)
     // funzione in xerrori.* con controlli sul successo
     xpthread_mutex_lock(dati->mux,QUI);
     // estraggo il puntatore alla linea
-    char* tmp = dati->buff[*dati->ind];
+    char* line = dati->buff[*dati->ind];
     *dati->ind = ((*dati->ind) + 1) % Buff_size;
-    if(tmp==NULL){ // controllo valore di interruzione ciclo
+    if(line==NULL){ // controllo valore di interruzione ciclo
       xpthread_mutex_unlock(dati->mux,QUI);
       xsem_post(dati->s_empty,QUI);
       break;
     }
-    // procedo con copia e elaborazione
-    // si necessita di una copia perche senno potrebbe essere sovrascritta (e persa) durante l'uso da un produttore (in quanto verra incrementto il sem_empty)
-    // si copia e si dealloca la vecchia immediatamente
-    char* line = strdup(tmp);
-    free(tmp);
     xpthread_mutex_unlock(dati->mux,QUI);
     xsem_post(dati->s_empty,QUI);
 
