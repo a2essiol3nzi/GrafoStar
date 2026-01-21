@@ -1,4 +1,4 @@
-# Progetto Lab2 24/25: 
+# Progetto Lab2 24/25: (in fase di modofica)
 Testo: https://elearning.di.unipi.it/mod/page/view.php?id=22794 (progetto ridotto)
 
 ***Specifiche richieste dal progetto!***
